@@ -1,8 +1,15 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { router } from 'expo-router';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  Animated,
+  Easing,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState } from 'react';
 
 import { HomeTasksWidget } from '../../components/items/HomeTasksWidget';
 import { IdeaCard } from '../../components/items/IdeaCard';
@@ -62,11 +69,15 @@ function splitIntoMasonryColumns(items: HomeMasonryItem[]) {
 
 function renderMasonryItem(item: HomeMasonryItem, onPress: () => void) {
   if (isTextNote(item)) {
-    return <NoteCard key={item.id} note={item} onPress={onPress} variant="home" />;
+    return (
+      <NoteCard key={item.id} note={item} onPress={onPress} variant="home" />
+    );
   }
 
   if (isIdeaNote(item)) {
-    return <IdeaCard key={item.id} idea={item} onPress={onPress} variant="home" />;
+    return (
+      <IdeaCard key={item.id} idea={item} onPress={onPress} variant="home" />
+    );
   }
 
   return null;
@@ -74,35 +85,75 @@ function renderMasonryItem(item: HomeMasonryItem, onPress: () => void) {
 
 export default function HomeScreen() {
   const { theme } = useMinutaTheme();
+
   const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [widgetHeight, setWidgetHeight] = useState(0);
+
+  const widgetAnim = useRef(new Animated.Value(1)).current;
+
   const notes = useNotesStore((state) => state.notes);
   const ideas = useNotesStore((state) => state.ideas);
   const tasks = useNotesStore((state) => state.tasks);
   const toggleTask = useNotesStore((state) => state.toggleTask);
   const seedDemoData = useNotesStore((state) => state.seedDemoData);
+
   const allItems = [...notes, ...ideas].sort(
     (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()
   );
+
   const normalizedQuery = normalizeSearch(searchQuery);
+
   const items = allItems.filter((item) =>
     matchesHomeSearch(item, normalizedQuery)
   );
+
   const { left, right } = splitIntoMasonryColumns(items);
+
+  const shouldHideWidget = isSearchFocused || searchQuery.trim().length > 0;
+
+  const animatedWidgetHeight = widgetAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, widgetHeight],
+  });
+
+  const animatedWidgetMarginTop = widgetAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 12],
+  });
 
   useEffect(() => {
     seedDemoData();
   }, [seedDemoData]);
 
+  useEffect(() => {
+    Animated.timing(widgetAnim, {
+      toValue: shouldHideWidget ? 0 : 1,
+      duration: 220,
+      easing: Easing.out(Easing.ease),
+      useNativeDriver: false,
+    }).start();
+  }, [shouldHideWidget, widgetAnim]);
+
   return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: theme.background }]}>
-      <ScrollView contentContainerStyle={styles.content}>
+    <SafeAreaView
+      edges={['top']}
+      style={[styles.screen, { backgroundColor: theme.background }]}
+    >
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          styles.contentWithTabBarPadding,
+        ]}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.header}>
           <Text style={[styles.title, { color: theme.text }]}>Minuta</Text>
-          <Text style={[styles.subtitle, { color: theme.mutedText }]}>
-            Todo lo que has guardado, en un solo sitio.
-          </Text>
+
           <TextInput
+            onBlur={() => setIsSearchFocused(false)}
             onChangeText={setSearchQuery}
+            onFocus={() => setIsSearchFocused(true)}
             placeholder="Buscar notas e ideas..."
             placeholderTextColor={theme.mutedText}
             style={[
@@ -114,7 +165,35 @@ export default function HomeScreen() {
             ]}
             value={searchQuery}
           />
-          <HomeTasksWidget onToggleTask={toggleTask} tasks={tasks} />
+
+          <Animated.View
+            pointerEvents={shouldHideWidget ? 'none' : 'auto'}
+            style={[
+              styles.widgetAnimatedWrapper,
+              widgetHeight > 0
+                ? {
+                  height: animatedWidgetHeight,
+                  marginTop: animatedWidgetMarginTop,
+                  opacity: widgetAnim,
+                }
+                : {
+                  opacity: widgetAnim,
+                  marginTop: 12,
+                },
+            ]}
+          >
+            <View
+              onLayout={(event) => {
+                const height = event.nativeEvent.layout.height;
+
+                if (height > 0 && height !== widgetHeight) {
+                  setWidgetHeight(height);
+                }
+              }}
+            >
+              <HomeTasksWidget onToggleTask={toggleTask} tasks={tasks} />
+            </View>
+          </Animated.View>
         </View>
 
         {allItems.length === 0 ? (
@@ -130,14 +209,19 @@ export default function HomeScreen() {
             <View style={styles.column}>
               {left.map((item) => (
                 <View key={item.id} style={styles.cardWrapper}>
-                  {renderMasonryItem(item, () => router.push(`/item/${item.id}`))}
+                  {renderMasonryItem(item, () =>
+                    router.push(`/item/${item.id}`)
+                  )}
                 </View>
               ))}
             </View>
+
             <View style={styles.column}>
               {right.map((item) => (
                 <View key={item.id} style={styles.cardWrapper}>
-                  {renderMasonryItem(item, () => router.push(`/item/${item.id}`))}
+                  {renderMasonryItem(item, () =>
+                    router.push(`/item/${item.id}`)
+                  )}
                 </View>
               ))}
             </View>
@@ -152,38 +236,55 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
   },
+
   content: {
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
+    paddingTop: spacing.md,
   },
+
+  contentWithTabBarPadding: {
+    paddingBottom: 120,
+  },
+
   header: {
-    gap: 12,
     marginBottom: 12,
   },
+
   title: {
     fontSize: typography.title,
     fontWeight: '700',
+    marginBottom: 12,
   },
+
   subtitle: {
     fontSize: typography.body,
     lineHeight: 22,
   },
+
   searchInput: {
     borderRadius: 16,
     fontSize: typography.body,
     paddingHorizontal: spacing.md,
     paddingVertical: 12,
   },
+
+  widgetAnimatedWrapper: {
+    overflow: 'hidden',
+  },
+
   empty: {
     fontSize: typography.body,
   },
+
   masonryRow: {
     flexDirection: 'row',
     gap: 12,
   },
+
   column: {
     flex: 1,
   },
+
   cardWrapper: {
     marginBottom: 12,
   },
