@@ -1,13 +1,17 @@
-import { FlashList } from '@shopify/flash-list';
-import { router } from 'expo-router';
-import { useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { FlashList } from "@shopify/flash-list";
+import { router } from "expo-router";
+import { useState } from "react";
+import { StyleSheet, Text, TextInput, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { NoteCard } from '../../components/items/NoteCard';
-import { spacing, typography } from '../../constants/theme';
-import { useMinutaTheme } from '../../constants/useMinutaTheme';
-import { useNotesStore } from '../../store/notesStore';
+import { showDeleteConfirm } from "../../components/actions/DeleteConfirmDialog";
+import { SectionActionsMenu } from "../../components/actions/SectionActionsMenu";
+import { SwipeableItemCard } from "../../components/actions/SwipeableItemCard";
+import type { ItemAction } from "../../components/actions/actions";
+import { NoteCard } from "../../components/items/NoteCard";
+import { spacing, typography } from "../../constants/theme";
+import { useMinutaTheme } from "../../constants/useMinutaTheme";
+import { useNotesStore } from "../../store/notesStore";
 
 function normalizeSearch(value: string) {
   return value.trim().toLowerCase();
@@ -15,10 +19,16 @@ function normalizeSearch(value: string) {
 
 export default function NotasScreen() {
   const { theme } = useMinutaTheme();
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const notes = useNotesStore((state) => state.notes);
+  const archiveNote = useNotesStore((state) => state.archiveNote);
+  const archiveAllNotes = useNotesStore((state) => state.archiveAllNotes);
+  const deleteAllNotes = useNotesStore((state) => state.deleteAllNotes);
+  const deleteNote = useNotesStore((state) => state.deleteNote);
+  const markAllNotes = useNotesStore((state) => state.markAllNotes);
   const normalizedQuery = normalizeSearch(searchQuery);
-  const filteredNotes = notes.filter((note) => {
+  const visibleNotes = notes.filter((note) => !note.isArchived);
+  const filteredNotes = visibleNotes.filter((note) => {
     if (!normalizedQuery) return true;
 
     return (
@@ -27,8 +37,38 @@ export default function NotasScreen() {
     );
   });
 
+  const handleSectionAction = (action: ItemAction) => {
+    if (action === "markAll") {
+      markAllNotes();
+      return;
+    }
+
+    if (action === "archive") {
+      archiveAllNotes();
+      return;
+    }
+
+    if (action === "deleteAll") {
+      showDeleteConfirm({
+        title: "Borrar notas",
+        message: "¿Seguro que quieres borrar todas las notas?",
+        onConfirm: deleteAllNotes,
+      });
+    }
+  };
+
+  const confirmDeleteNote = (id: string) => {
+    showDeleteConfirm({
+      title: "Borrar nota",
+      message: "¿Seguro que quieres borrar esta nota?",
+      onConfirm: () => deleteNote(id),
+    });
+  };
+
   return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: theme.background }]}>
+    <SafeAreaView
+      style={[styles.screen, { backgroundColor: theme.background }]}
+    >
       <View style={styles.listWrapper}>
         <FlashList
           data={filteredNotes}
@@ -36,7 +76,21 @@ export default function NotasScreen() {
           keyExtractor={(item) => item.id}
           ListHeaderComponent={
             <View>
-              <Text style={[styles.title, { color: theme.text }]}>Notas</Text>
+              <View style={styles.sectionHeader}>
+                <Text style={[styles.title, { color: theme.text }]}>Notas</Text>
+                <SectionActionsMenu
+                  items={[
+                    { action: "markAll", label: "Marcar todas" },
+                    { action: "archive", label: "Archivar todas" },
+                    {
+                      action: "deleteAll",
+                      label: "Borrar todas",
+                      destructive: true,
+                    },
+                  ]}
+                  onSelect={handleSectionAction}
+                />
+              </View>
               <TextInput
                 onChangeText={setSearchQuery}
                 placeholder="Buscar notas..."
@@ -54,18 +108,23 @@ export default function NotasScreen() {
           }
           ListEmptyComponent={
             <Text style={[styles.empty, { color: theme.mutedText }]}>
-              {notes.length === 0
-                ? 'Todavía no hay notas.'
-                : 'No hay resultados para esta búsqueda.'}
+              {visibleNotes.length === 0
+                ? "Todavía no hay notas."
+                : "No hay resultados para esta búsqueda."}
             </Text>
           }
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           contentContainerStyle={styles.content}
           renderItem={({ item }) => (
-            <NoteCard
-              note={item}
-              onPress={() => router.push(`/item/${item.id}`)}
-            />
+            <SwipeableItemCard
+              onArchive={() => archiveNote(item.id)}
+              onDelete={() => confirmDeleteNote(item.id)}
+            >
+              <NoteCard
+                note={item}
+                onPress={() => router.push(`/item/${item.id}`)}
+              />
+            </SwipeableItemCard>
           )}
         />
       </View>
@@ -86,7 +145,12 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: typography.title,
-    fontWeight: '700',
+    fontWeight: "700",
+  },
+  sectionHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
   searchInput: {
     borderRadius: 16,

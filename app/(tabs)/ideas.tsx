@@ -1,13 +1,17 @@
-import { FlashList } from '@shopify/flash-list';
-import { router } from 'expo-router';
-import { useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { FlashList } from "@shopify/flash-list";
+import { router } from "expo-router";
+import { useState } from "react";
+import { StyleSheet, Text, TextInput, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { IdeaCard } from '../../components/items/IdeaCard';
-import { spacing, typography } from '../../constants/theme';
-import { useMinutaTheme } from '../../constants/useMinutaTheme';
-import { useNotesStore } from '../../store/notesStore';
+import { showDeleteConfirm } from "../../components/actions/DeleteConfirmDialog";
+import { SectionActionsMenu } from "../../components/actions/SectionActionsMenu";
+import { SwipeableItemCard } from "../../components/actions/SwipeableItemCard";
+import type { ItemAction } from "../../components/actions/actions";
+import { IdeaCard } from "../../components/items/IdeaCard";
+import { spacing, typography } from "../../constants/theme";
+import { useMinutaTheme } from "../../constants/useMinutaTheme";
+import { useNotesStore } from "../../store/notesStore";
 
 function normalizeSearch(value: string) {
   return value.trim().toLowerCase();
@@ -15,10 +19,16 @@ function normalizeSearch(value: string) {
 
 export default function IdeasScreen() {
   const { theme } = useMinutaTheme();
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const ideas = useNotesStore((state) => state.ideas);
+  const archiveAllIdeas = useNotesStore((state) => state.archiveAllIdeas);
+  const archiveIdea = useNotesStore((state) => state.archiveIdea);
+  const deleteAllIdeas = useNotesStore((state) => state.deleteAllIdeas);
+  const deleteIdea = useNotesStore((state) => state.deleteIdea);
+  const markAllIdeas = useNotesStore((state) => state.markAllIdeas);
   const normalizedQuery = normalizeSearch(searchQuery);
-  const filteredIdeas = ideas.filter((idea) => {
+  const visibleIdeas = ideas.filter((idea) => !idea.isArchived);
+  const filteredIdeas = visibleIdeas.filter((idea) => {
     if (!normalizedQuery) return true;
 
     return (
@@ -27,8 +37,38 @@ export default function IdeasScreen() {
     );
   });
 
+  const handleSectionAction = (action: ItemAction) => {
+    if (action === "markAll") {
+      markAllIdeas();
+      return;
+    }
+
+    if (action === "archive") {
+      archiveAllIdeas();
+      return;
+    }
+
+    if (action === "deleteAll") {
+      showDeleteConfirm({
+        title: "Borrar ideas",
+        message: "¿Seguro que quieres borrar todas las ideas?",
+        onConfirm: deleteAllIdeas,
+      });
+    }
+  };
+
+  const confirmDeleteIdea = (id: string) => {
+    showDeleteConfirm({
+      title: "Borrar idea",
+      message: "¿Seguro que quieres borrar esta idea?",
+      onConfirm: () => deleteIdea(id),
+    });
+  };
+
   return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: theme.background }]}>
+    <SafeAreaView
+      style={[styles.screen, { backgroundColor: theme.background }]}
+    >
       <View style={styles.listWrapper}>
         <FlashList
           data={filteredIdeas}
@@ -36,7 +76,21 @@ export default function IdeasScreen() {
           keyExtractor={(item) => item.id}
           ListHeaderComponent={
             <View>
-              <Text style={[styles.title, { color: theme.text }]}>Ideas</Text>
+              <View style={styles.sectionHeader}>
+                <Text style={[styles.title, { color: theme.text }]}>Ideas</Text>
+                <SectionActionsMenu
+                  items={[
+                    { action: "markAll", label: "Marcar todas" },
+                    { action: "archive", label: "Archivar todas" },
+                    {
+                      action: "deleteAll",
+                      label: "Borrar todas",
+                      destructive: true,
+                    },
+                  ]}
+                  onSelect={handleSectionAction}
+                />
+              </View>
               <TextInput
                 onChangeText={setSearchQuery}
                 placeholder="Buscar ideas..."
@@ -54,18 +108,23 @@ export default function IdeasScreen() {
           }
           ListEmptyComponent={
             <Text style={[styles.empty, { color: theme.mutedText }]}>
-              {ideas.length === 0
-                ? 'Todavía no hay ideas.'
-                : 'No hay resultados para esta búsqueda.'}
+              {visibleIdeas.length === 0
+                ? "Todavía no hay ideas."
+                : "No hay resultados para esta búsqueda."}
             </Text>
           }
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           contentContainerStyle={styles.content}
           renderItem={({ item }) => (
-            <IdeaCard
-              idea={item}
-              onPress={() => router.push(`/item/${item.id}`)}
-            />
+            <SwipeableItemCard
+              onArchive={() => archiveIdea(item.id)}
+              onDelete={() => confirmDeleteIdea(item.id)}
+            >
+              <IdeaCard
+                idea={item}
+                onPress={() => router.push(`/item/${item.id}`)}
+              />
+            </SwipeableItemCard>
           )}
         />
       </View>
@@ -86,7 +145,12 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: typography.title,
-    fontWeight: '700',
+    fontWeight: "700",
+  },
+  sectionHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
   searchInput: {
     borderRadius: 16,

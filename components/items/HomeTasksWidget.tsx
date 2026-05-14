@@ -18,7 +18,7 @@ export function HomeTasksWidget({
   const visibleTasks = tasks.slice(0, 3);
   const subtitle =
     pendingTasks.length > 0
-      ? `Hoy tienes ${pendingTasks.length} tareas pendientes`
+      ? `Tienes ${pendingTasks.length} tareas pendientes`
       : 'No tienes tareas pendientes';
 
   return (

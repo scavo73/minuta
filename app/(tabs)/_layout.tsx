@@ -79,7 +79,7 @@ export default function TabsLayout() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Crear nueva minuta"
-              onPress={() => router.push('/nueva-nota')}
+              onPress={() => router.push('/new-item')}
               style={styles.createTabButtonWrapper}
             >
               <Text

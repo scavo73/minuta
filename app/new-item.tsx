@@ -36,7 +36,15 @@ const ideaSchema = z.object({
   color: z.string().min(1),
 });
 
-const ideaColors = ['#FDE68A', '#7DD3FC', '#FCA5A5', '#C4B5FD'];
+const ideaColors = [
+  '#FDE68A', // amarillo
+  '#7DD3FC', // azul
+  '#FCA5A5', // rojo
+  '#86EFAC', // verde
+  '#FECACA', // coral
+  '#A7F3D0', // menta
+  '#FEF3C7', // crema
+];
 
 type FormErrors = Partial<Record<'title' | 'content' | 'text' | 'color', string>>;
 

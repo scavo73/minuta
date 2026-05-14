@@ -1,5 +1,5 @@
-import * as Haptics from 'expo-haptics';
-import { router, useLocalSearchParams } from 'expo-router';
+import * as Haptics from "expo-haptics";
+import { router, useLocalSearchParams } from "expo-router";
 import {
   Alert,
   Image,
@@ -8,41 +8,50 @@ import {
   StyleSheet,
   Text,
   View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { radius, spacing, typography } from '../../constants/theme';
-import { useMinutaTheme } from '../../constants/useMinutaTheme';
-import { useNotesStore } from '../../store/notesStore';
-import { isIdeaNote, isTask, isTextNote } from '../../types';
+import { showDeleteConfirm } from "../../components/actions/DeleteConfirmDialog";
+import { ItemActionsMenu } from "../../components/actions/ItemActionsMenu";
+import type {
+  ActionMenuItem,
+  ItemAction,
+} from "../../components/actions/actions";
+import { radius, spacing, typography } from "../../constants/theme";
+import { useMinutaTheme } from "../../constants/useMinutaTheme";
+import { useNotesStore } from "../../store/notesStore";
+import { isIdeaNote, isTask, isTextNote } from "../../types";
 
 export default function ItemDetailScreen() {
   const { theme } = useMinutaTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const itemId = Array.isArray(id) ? id[0] : id;
   const getItemById = useNotesStore((state) => state.getItemById);
+  const archiveIdea = useNotesStore((state) => state.archiveIdea);
+  const archiveNote = useNotesStore((state) => state.archiveNote);
+  const convertIdeaToTask = useNotesStore((state) => state.convertIdeaToTask);
   const deleteItem = useNotesStore((state) => state.deleteItem);
   const toggleTask = useNotesStore((state) => state.toggleTask);
   const item = itemId ? getItemById(itemId) : undefined;
 
   const confirmDelete = () => {
-    if (!itemId) return;
+    if (!itemId || !item) return;
 
-    Alert.alert('Eliminar elemento', 'Esta acción no se puede deshacer.', [
-      {
-        text: 'Cancelar',
-        style: 'cancel',
+    const label = isTextNote(item)
+      ? "nota"
+      : isIdeaNote(item)
+        ? "idea"
+        : "tarea";
+
+    showDeleteConfirm({
+      title: `Borrar ${label}`,
+      message: `¿Seguro que quieres borrar esta ${label}?`,
+      onConfirm: async () => {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        deleteItem(itemId);
+        router.back();
       },
-      {
-        text: 'Eliminar',
-        style: 'destructive',
-        onPress: async () => {
-          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          deleteItem(itemId);
-          router.back();
-        },
-      },
-    ]);
+    });
   };
 
   const handleToggleTask = async () => {
@@ -51,6 +60,71 @@ export default function ItemDetailScreen() {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     toggleTask(item.id);
   };
+
+  const handleArchive = async () => {
+    if (!item) return;
+
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    if (isTextNote(item)) {
+      archiveNote(item.id);
+      router.back();
+      return;
+    }
+
+    if (isIdeaNote(item)) {
+      archiveIdea(item.id);
+      router.back();
+    }
+  };
+
+  const handleDetailAction = (action: ItemAction) => {
+    if (action === "edit") {
+      Alert.alert(
+        "Editar",
+        "TODO: conectar esta acción con el flujo de edición existente.",
+      );
+      return;
+    }
+
+    if (action === "archive") {
+      handleArchive();
+      return;
+    }
+
+    if (action === "delete") {
+      confirmDelete();
+      return;
+    }
+
+    if (action === "convertToTask" && item && isIdeaNote(item)) {
+      convertIdeaToTask(item.id);
+      Alert.alert("Idea convertida", "Se ha creado una tarea con esta idea.");
+      router.back();
+      return;
+    }
+
+    if (action === "extractTasks") {
+      Alert.alert(
+        "Extraer tareas",
+        "TODO: preparar extracción de tareas desde el contenido de la nota.",
+      );
+    }
+  };
+
+  const detailActions: ActionMenuItem[] = item
+    ? [
+        { action: "edit", label: "Editar" },
+        { action: "archive", label: "Archivar" },
+        ...(isIdeaNote(item)
+          ? [{ action: "convertToTask" as const, label: "Convertir en tarea" }]
+          : []),
+        ...(isTextNote(item)
+          ? [{ action: "extractTasks" as const, label: "Extraer tareas" }]
+          : []),
+        { action: "delete", label: "Borrar", destructive: true },
+      ]
+    : [];
 
   if (!item) {
     return (
@@ -73,7 +147,9 @@ export default function ItemDetailScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: theme.background }]}>
+    <SafeAreaView
+      style={[styles.screen, { backgroundColor: theme.background }]}
+    >
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.topBar}>
           <Pressable
@@ -84,6 +160,12 @@ export default function ItemDetailScreen() {
               Volver
             </Text>
           </Pressable>
+          {!isTask(item) ? (
+            <ItemActionsMenu
+              items={detailActions}
+              onSelect={handleDetailAction}
+            />
+          ) : null}
         </View>
 
         {isTextNote(item) ? (
@@ -113,14 +195,14 @@ export default function ItemDetailScreen() {
               {item.text}
             </Text>
             <Text style={[styles.status, { color: theme.mutedText }]}>
-              Estado: {item.isCompleted ? 'Hecha' : 'Pendiente'}
+              Estado: {item.isCompleted ? "Hecha" : "Pendiente"}
             </Text>
             <Pressable
               onPress={handleToggleTask}
               style={[styles.primaryButton, { backgroundColor: theme.primary }]}
             >
               <Text style={styles.primaryButtonText}>
-                Marcar como {item.isCompleted ? 'pendiente' : 'hecha'}
+                Marcar como {item.isCompleted ? "pendiente" : "hecha"}
               </Text>
             </Pressable>
           </>
@@ -138,7 +220,7 @@ export default function ItemDetailScreen() {
               {item.title}
             </Text>
             <View style={styles.tags}>
-              {(item.tags.length > 0 ? item.tags : ['Sin etiquetas']).map(
+              {(item.tags.length > 0 ? item.tags : ["Sin etiquetas"]).map(
                 (tag) => (
                   <View
                     key={tag}
@@ -148,15 +230,17 @@ export default function ItemDetailScreen() {
                       {tag}
                     </Text>
                   </View>
-                )
+                ),
               )}
             </View>
           </>
         ) : null}
 
-        <Pressable onPress={confirmDelete} style={styles.deleteButton}>
-          <Text style={styles.deleteButtonText}>Eliminar</Text>
-        </Pressable>
+        {isTask(item) ? (
+          <Pressable onPress={confirmDelete} style={styles.deleteButton}>
+            <Text style={styles.deleteButtonText}>Eliminar</Text>
+          </Pressable>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -173,11 +257,13 @@ const styles = StyleSheet.create({
   emptyContent: {
     flex: 1,
     gap: spacing.md,
-    justifyContent: 'center',
+    justifyContent: "center",
     padding: spacing.md,
   },
   topBar: {
-    alignItems: 'flex-start',
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
   backButton: {
     borderRadius: radius.md,
@@ -186,16 +272,16 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     fontSize: typography.body,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   image: {
     aspectRatio: 1,
     borderRadius: radius.lg,
-    width: '100%',
+    width: "100%",
   },
   title: {
     fontSize: typography.title,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   body: {
     fontSize: typography.body,
@@ -203,7 +289,7 @@ const styles = StyleSheet.create({
   },
   typeLabel: {
     fontSize: typography.small,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   status: {
     fontSize: typography.body,
@@ -213,18 +299,18 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   primaryButtonText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: typography.body,
-    fontWeight: '700',
-    textAlign: 'center',
+    fontWeight: "700",
+    textAlign: "center",
   },
   colorBlock: {
     borderRadius: radius.lg,
     height: 120,
   },
   tags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: spacing.sm,
   },
   chip: {
@@ -234,19 +320,19 @@ const styles = StyleSheet.create({
   },
   chipText: {
     fontSize: typography.small,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   deleteButton: {
     borderRadius: radius.md,
-    borderColor: '#DC2626',
+    borderColor: "#DC2626",
     borderWidth: 1,
     marginTop: spacing.lg,
     padding: spacing.md,
   },
   deleteButtonText: {
-    color: '#DC2626',
+    color: "#DC2626",
     fontSize: typography.body,
-    fontWeight: '700',
-    textAlign: 'center',
+    fontWeight: "700",
+    textAlign: "center",
   },
 });

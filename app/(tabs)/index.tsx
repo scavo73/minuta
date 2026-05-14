@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { router } from 'expo-router';
+import { useEffect, useRef, useState } from "react";
+import { router } from "expo-router";
 import {
   Animated,
   Easing,
@@ -8,16 +8,16 @@ import {
   Text,
   TextInput,
   View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { HomeTasksWidget } from '../../components/items/HomeTasksWidget';
-import { IdeaCard } from '../../components/items/IdeaCard';
-import { NoteCard } from '../../components/items/NoteCard';
-import { spacing, typography } from '../../constants/theme';
-import { useMinutaTheme } from '../../constants/useMinutaTheme';
-import { useNotesStore } from '../../store/notesStore';
-import { IdeaNote, isIdeaNote, isTextNote, Note } from '../../types';
+import { HomeTasksWidget } from "../../components/items/HomeTasksWidget";
+import { IdeaCard } from "../../components/items/IdeaCard";
+import { NoteCard } from "../../components/items/NoteCard";
+import { spacing, typography } from "../../constants/theme";
+import { useMinutaTheme } from "../../constants/useMinutaTheme";
+import { useNotesStore } from "../../store/notesStore";
+import { IdeaNote, isIdeaNote, isTextNote, Note } from "../../types";
 
 type HomeMasonryItem = Note | IdeaNote;
 
@@ -86,7 +86,7 @@ function renderMasonryItem(item: HomeMasonryItem, onPress: () => void) {
 export default function HomeScreen() {
   const { theme } = useMinutaTheme();
 
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [widgetHeight, setWidgetHeight] = useState(0);
 
@@ -98,14 +98,15 @@ export default function HomeScreen() {
   const toggleTask = useNotesStore((state) => state.toggleTask);
   const seedDemoData = useNotesStore((state) => state.seedDemoData);
 
-  const allItems = [...notes, ...ideas].sort(
-    (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()
-  );
+  const allItems = [
+    ...notes.filter((note) => !note.isArchived),
+    ...ideas.filter((idea) => !idea.isArchived),
+  ].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
 
   const normalizedQuery = normalizeSearch(searchQuery);
 
   const items = allItems.filter((item) =>
-    matchesHomeSearch(item, normalizedQuery)
+    matchesHomeSearch(item, normalizedQuery),
   );
 
   const { left, right } = splitIntoMasonryColumns(items);
@@ -137,7 +138,7 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView
-      edges={['top']}
+      edges={["top"]}
       style={[styles.screen, { backgroundColor: theme.background }]}
     >
       <ScrollView
@@ -167,19 +168,19 @@ export default function HomeScreen() {
           />
 
           <Animated.View
-            pointerEvents={shouldHideWidget ? 'none' : 'auto'}
+            pointerEvents={shouldHideWidget ? "none" : "auto"}
             style={[
               styles.widgetAnimatedWrapper,
               widgetHeight > 0
                 ? {
-                  height: animatedWidgetHeight,
-                  marginTop: animatedWidgetMarginTop,
-                  opacity: widgetAnim,
-                }
+                    height: animatedWidgetHeight,
+                    marginTop: animatedWidgetMarginTop,
+                    opacity: widgetAnim,
+                  }
                 : {
-                  opacity: widgetAnim,
-                  marginTop: 12,
-                },
+                    opacity: widgetAnim,
+                    marginTop: 12,
+                  },
             ]}
           >
             <View
@@ -210,7 +211,7 @@ export default function HomeScreen() {
               {left.map((item) => (
                 <View key={item.id} style={styles.cardWrapper}>
                   {renderMasonryItem(item, () =>
-                    router.push(`/item/${item.id}`)
+                    router.push(`/item/${item.id}`),
                   )}
                 </View>
               ))}
@@ -220,7 +221,7 @@ export default function HomeScreen() {
               {right.map((item) => (
                 <View key={item.id} style={styles.cardWrapper}>
                   {renderMasonryItem(item, () =>
-                    router.push(`/item/${item.id}`)
+                    router.push(`/item/${item.id}`),
                   )}
                 </View>
               ))}
@@ -252,7 +253,7 @@ const styles = StyleSheet.create({
 
   title: {
     fontSize: typography.title,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: 12,
   },
 
@@ -269,7 +270,7 @@ const styles = StyleSheet.create({
   },
 
   widgetAnimatedWrapper: {
-    overflow: 'hidden',
+    overflow: "hidden",
   },
 
   empty: {
@@ -277,7 +278,7 @@ const styles = StyleSheet.create({
   },
 
   masonryRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
   },
 
