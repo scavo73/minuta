@@ -69,6 +69,7 @@ export default function NotasScreen() {
           data={filteredNotes}
           estimatedItemSize={140}
           keyExtractor={(item) => item.id}
+          maintainVisibleContentPosition={{ disabled: true }}
           ListHeaderComponent={
             <View>
               <View style={styles.sectionHeader}>

@@ -21,6 +21,7 @@ interface NotesStore {
     id: string,
     updates: Pick<IdeaNote, "title" | "tags" | "color">,
   ) => void;
+  updateTask: (id: string, updates: Pick<Task, "text">) => void;
 
   deleteNote: (id: string) => void;
   deleteTask: (id: string) => void;
@@ -50,27 +51,49 @@ type PersistedNotesState = Partial<
   Pick<NotesStore, "notes" | "tasks" | "ideas">
 >;
 
+function getActivityTime(item: Pick<AnyNote, "createdAt" | "updatedAt">) {
+  return (item.updatedAt ?? item.createdAt).getTime();
+}
+
+function sortByRecent<T extends Pick<AnyNote, "createdAt" | "updatedAt">>(
+  items: T[],
+) {
+  return [...items].sort((a, b) => getActivityTime(b) - getActivityTime(a));
+}
+
+function sortTasksByCreated(items: Task[]) {
+  return [...items].sort(
+    (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+  );
+}
+
 function reviveNoteDates(note: Note): Note {
+  const createdAt = new Date(note.createdAt);
+
   return {
     ...note,
-    createdAt: new Date(note.createdAt),
-    updatedAt: new Date(note.updatedAt),
+    createdAt,
+    updatedAt: note.updatedAt ? new Date(note.updatedAt) : createdAt,
   };
 }
 
 function reviveTaskDates(task: Task): Task {
+  const createdAt = new Date(task.createdAt);
+
   return {
     ...task,
-    createdAt: new Date(task.createdAt),
-    updatedAt: new Date(task.updatedAt),
+    createdAt,
+    updatedAt: task.updatedAt ? new Date(task.updatedAt) : createdAt,
   };
 }
 
 function reviveIdeaDates(idea: IdeaNote): IdeaNote {
+  const createdAt = new Date(idea.createdAt);
+
   return {
     ...idea,
-    createdAt: new Date(idea.createdAt),
-    updatedAt: new Date(idea.updatedAt),
+    createdAt,
+    updatedAt: idea.updatedAt ? new Date(idea.updatedAt) : createdAt,
   };
 }
 
@@ -84,41 +107,57 @@ export const useNotesStore = create<NotesStore>()(
 
       addNote: (note) =>
         set((state) => ({
-          notes: [...state.notes, note],
+          notes: sortByRecent([...state.notes, note]),
         })),
 
       addTask: (task) =>
         set((state) => ({
-          tasks: [...state.tasks, task],
+          tasks: [task, ...state.tasks],
         })),
 
       addIdea: (idea) =>
         set((state) => ({
-          ideas: [...state.ideas, idea],
+          ideas: sortByRecent([...state.ideas, idea]),
         })),
 
       updateNote: (id, updates) =>
         set((state) => ({
-          notes: state.notes.map((note) =>
-            note.id !== id
-              ? note
-              : {
-                  ...note,
-                  ...updates,
-                  updatedAt: new Date(),
-                },
+          notes: sortByRecent(
+            state.notes.map((note) =>
+              note.id !== id
+                ? note
+                : {
+                    ...note,
+                    ...updates,
+                    updatedAt: new Date(),
+                  },
+            ),
           ),
         })),
 
       updateIdea: (id, updates) =>
         set((state) => ({
-          ideas: state.ideas.map((idea) =>
-            idea.id !== id
-              ? idea
+          ideas: sortByRecent(
+            state.ideas.map((idea) =>
+              idea.id !== id
+                ? idea
+                : {
+                    ...idea,
+                    ...updates,
+                    updatedAt: new Date(),
+                  },
+            ),
+          ),
+        })),
+
+      updateTask: (id, updates) =>
+        set((state) => ({
+          tasks: state.tasks.map((task) =>
+            task.id !== id
+              ? task
               : {
-                  ...idea,
+                  ...task,
                   ...updates,
-                  updatedAt: new Date(),
                 },
           ),
         })),
@@ -227,7 +266,6 @@ export const useNotesStore = create<NotesStore>()(
                 : { ...item, isArchived: true, updatedAt: now },
             ),
             tasks: [
-              ...state.tasks,
               {
                 id: `${id}-task-${now.getTime()}`,
                 text: idea.title,
@@ -235,6 +273,7 @@ export const useNotesStore = create<NotesStore>()(
                 createdAt: now,
                 updatedAt: now,
               },
+              ...state.tasks,
             ],
           };
         }),
@@ -276,7 +315,7 @@ export const useNotesStore = create<NotesStore>()(
           ...state.notes.filter((note) => !note.isArchived),
           ...state.tasks,
           ...state.ideas.filter((idea) => !idea.isArchived),
-        ].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+        ].sort((a, b) => getActivityTime(b) - getActivityTime(a));
       },
 
       seedDemoData: () => {
@@ -371,15 +410,18 @@ export const useNotesStore = create<NotesStore>()(
         return {
           ...currentState,
           ...persisted,
-          notes:
+          notes: sortByRecent(
             persisted.notes?.map((note) => reviveNoteDates(note)) ??
-            currentState.notes,
-          tasks:
+              currentState.notes,
+          ),
+          tasks: sortTasksByCreated(
             persisted.tasks?.map((task) => reviveTaskDates(task)) ??
-            currentState.tasks,
-          ideas:
+              currentState.tasks,
+          ),
+          ideas: sortByRecent(
             persisted.ideas?.map((idea) => reviveIdeaDates(idea)) ??
-            currentState.ideas,
+              currentState.ideas,
+          ),
         };
       },
       onRehydrateStorage: () => (state) => {

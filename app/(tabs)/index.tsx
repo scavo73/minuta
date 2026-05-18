@@ -9,6 +9,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import Reanimated, { LinearTransition } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { HomeTasksWidget } from "../../components/items/HomeTasksWidget";
@@ -20,6 +21,10 @@ import { useNotesStore } from "../../store/notesStore";
 import { IdeaNote, isIdeaNote, isTextNote, Note } from "../../types";
 
 type HomeMasonryItem = Note | IdeaNote;
+
+const gridLayoutTransition = LinearTransition.springify()
+  .damping(16)
+  .stiffness(180);
 
 function normalizeSearch(value: string) {
   return value.trim().toLowerCase();
@@ -44,6 +49,10 @@ function matchesHomeSearch(item: HomeMasonryItem, query: string) {
 function getEstimatedCardWeight(item: HomeMasonryItem) {
   if (isTextNote(item) && item.imageUri) return 2;
   return 1;
+}
+
+function getActivityTime(item: HomeMasonryItem) {
+  return (item.updatedAt ?? item.createdAt).getTime();
 }
 
 function splitIntoMasonryColumns(items: HomeMasonryItem[]) {
@@ -101,7 +110,7 @@ export default function HomeScreen() {
   const allItems = [
     ...notes.filter((note) => !note.isArchived),
     ...ideas.filter((idea) => !idea.isArchived),
-  ].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+  ].sort((a, b) => getActivityTime(b) - getActivityTime(a));
 
   const normalizedQuery = normalizeSearch(searchQuery);
 
@@ -197,37 +206,39 @@ export default function HomeScreen() {
           </Animated.View>
         </View>
 
-        {allItems.length === 0 ? (
-          <Text style={[styles.empty, { color: theme.mutedText }]}>
-            Todavía no hay notas ni ideas.
-          </Text>
-        ) : items.length === 0 ? (
-          <Text style={[styles.empty, { color: theme.mutedText }]}>
-            No hay resultados para esta búsqueda.
-          </Text>
-        ) : (
-          <View style={styles.masonryRow}>
-            <View style={styles.column}>
-              {left.map((item) => (
-                <View key={item.id} style={styles.cardWrapper}>
-                  {renderMasonryItem(item, () =>
-                    router.push(`/item/${item.id}`),
-                  )}
-                </View>
-              ))}
-            </View>
+        <Reanimated.View layout={gridLayoutTransition}>
+          {allItems.length === 0 ? (
+            <Text style={[styles.empty, { color: theme.mutedText }]}>
+              Todavía no hay notas ni ideas.
+            </Text>
+          ) : items.length === 0 ? (
+            <Text style={[styles.empty, { color: theme.mutedText }]}>
+              No hay resultados para esta búsqueda.
+            </Text>
+          ) : (
+            <View style={styles.masonryRow}>
+              <View style={styles.column}>
+                {left.map((item) => (
+                  <View key={item.id} style={styles.cardWrapper}>
+                    {renderMasonryItem(item, () =>
+                      router.push(`/item/${item.id}`),
+                    )}
+                  </View>
+                ))}
+              </View>
 
-            <View style={styles.column}>
-              {right.map((item) => (
-                <View key={item.id} style={styles.cardWrapper}>
-                  {renderMasonryItem(item, () =>
-                    router.push(`/item/${item.id}`),
-                  )}
-                </View>
-              ))}
+              <View style={styles.column}>
+                {right.map((item) => (
+                  <View key={item.id} style={styles.cardWrapper}>
+                    {renderMasonryItem(item, () =>
+                      router.push(`/item/${item.id}`),
+                    )}
+                  </View>
+                ))}
+              </View>
             </View>
-          </View>
-        )}
+          )}
+        </Reanimated.View>
       </ScrollView>
     </SafeAreaView>
   );

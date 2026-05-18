@@ -7,6 +7,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   useWindowDimensions,
   View,
 } from "react-native";
@@ -19,7 +20,10 @@ interface TaskRowProps {
   task: Task;
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
-  onPressText: (id: string) => void;
+  onPressText: (task: Task) => void;
+  isEditing?: boolean;
+  editText?: string;
+  onChangeEditText?: (value: string) => void;
   onSwipeStart?: () => void;
   onSwipeEnd?: () => void;
 }
@@ -32,6 +36,9 @@ export function TaskRow({
   onToggle,
   onDelete,
   onPressText,
+  isEditing = false,
+  editText = task.text,
+  onChangeEditText,
   onSwipeStart,
   onSwipeEnd,
 }: TaskRowProps) {
@@ -77,12 +84,11 @@ export function TaskRow({
   };
 
   const resetPosition = () => {
-    hasTriggeredHaptic.current = false;
-
     Animated.spring(translateX, {
       toValue: 0,
       useNativeDriver: true,
     }).start(() => {
+      hasTriggeredHaptic.current = false;
       endSwipe();
     });
   };
@@ -130,10 +136,7 @@ export function TaskRow({
 
         if (Math.abs(gesture.dx) >= deleteThreshold) {
           triggerThresholdHaptic();
-          return;
         }
-
-        hasTriggeredHaptic.current = false;
       },
       onPanResponderRelease: (_, gesture) => {
         if (Math.abs(gesture.dx) >= deleteThreshold) {
@@ -148,6 +151,12 @@ export function TaskRow({
     }),
   ).current;
 
+  const taskTextStyle = {
+    color: theme.text,
+    textDecorationLine: task.isCompleted
+      ? ("line-through" as const)
+      : ("none" as const),
+  };
   const leftIconOpacity = translateX.interpolate({
     inputRange: [0, deleteThreshold],
     outputRange: [0, 1],
@@ -174,8 +183,8 @@ export function TaskRow({
       <View style={[styles.deleteBackground, { backgroundColor: deleteColor }]}>
         <Animated.View
           style={[
-            styles.deleteIcon,
-            styles.deleteIconLeft,
+            styles.swipeDeleteIcon,
+            styles.swipeDeleteIconLeft,
             {
               opacity: leftIconOpacity,
               transform: [{ scale: leftIconScale }],
@@ -186,8 +195,8 @@ export function TaskRow({
         </Animated.View>
         <Animated.View
           style={[
-            styles.deleteIcon,
-            styles.deleteIconRight,
+            styles.swipeDeleteIcon,
+            styles.swipeDeleteIconRight,
             {
               opacity: rightIconOpacity,
               transform: [{ scale: rightIconScale }],
@@ -221,23 +230,21 @@ export function TaskRow({
           {task.isCompleted ? <Text style={styles.checkmark}>✓</Text> : null}
         </Pressable>
 
-        <Pressable
-          onPress={() => onPressText(task.id)}
-          style={styles.textButton}
-        >
-          <Text
-            numberOfLines={2}
-            style={[
-              styles.taskText,
-              {
-                color: theme.text,
-                textDecorationLine: task.isCompleted ? "line-through" : "none",
-              },
-            ]}
-          >
-            {task.text}
-          </Text>
-        </Pressable>
+        {isEditing ? (
+          <TextInput
+            autoFocus
+            multiline
+            onChangeText={onChangeEditText}
+            style={[styles.textInput, styles.taskText, taskTextStyle]}
+            value={editText}
+          />
+        ) : (
+          <Pressable onPress={() => onPressText(task)} style={styles.textButton}>
+            <Text numberOfLines={2} style={[styles.taskText, taskTextStyle]}>
+              {task.text}
+            </Text>
+          </Pressable>
+        )}
       </Animated.View>
     </View>
   );
@@ -253,13 +260,13 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     justifyContent: "center",
   },
-  deleteIcon: {
+  swipeDeleteIcon: {
     position: "absolute",
   },
-  deleteIconLeft: {
+  swipeDeleteIconLeft: {
     left: spacing.md,
   },
-  deleteIconRight: {
+  swipeDeleteIconRight: {
     right: spacing.md,
   },
   taskRow: {
@@ -284,6 +291,10 @@ const styles = StyleSheet.create({
   },
   textButton: {
     flex: 1,
+  },
+  textInput: {
+    flex: 1,
+    padding: 0,
   },
   taskText: {
     fontSize: typography.body,

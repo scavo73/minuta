@@ -69,6 +69,7 @@ export default function IdeasScreen() {
           data={filteredIdeas}
           estimatedItemSize={140}
           keyExtractor={(item) => item.id}
+          maintainVisibleContentPosition={{ disabled: true }}
           ListHeaderComponent={
             <View>
               <View style={styles.sectionHeader}>

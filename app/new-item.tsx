@@ -173,7 +173,7 @@ export default function NuevaNotaScreen() {
       >
         <ScrollView contentContainerStyle={styles.content}>
           <View style={styles.topBar}>
-            <Text style={[styles.title, { color: theme.text }]}>Nueva minuta</Text>
+            <Text style={[styles.title, { color: theme.text }]}>Añadir</Text>
             <Pressable
               onPress={() => router.back()}
               style={[styles.closeButton, { backgroundColor: theme.surface }]}

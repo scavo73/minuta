@@ -1,7 +1,14 @@
 import { FlashList } from "@shopify/flash-list";
-import { router } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
-import { StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  Keyboard,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { showDeleteConfirm } from "../../components/actions/DeleteConfirmDialog";
@@ -11,6 +18,7 @@ import { TaskRow } from "../../components/items/TaskRow";
 import { spacing, typography } from "../../constants/theme";
 import { useMinutaTheme } from "../../constants/useMinutaTheme";
 import { useNotesStore } from "../../store/notesStore";
+import type { Task } from "../../types";
 
 function normalizeSearch(value: string) {
   return value.trim().toLowerCase();
@@ -20,6 +28,8 @@ export default function ChecklistsScreen() {
   const { theme } = useMinutaTheme();
   const [searchQuery, setSearchQuery] = useState("");
   const [isRowSwiping, setIsRowSwiping] = useState(false);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editingTaskText, setEditingTaskText] = useState("");
   const tasks = useNotesStore((state) => state.tasks);
   const deleteAllTasks = useNotesStore((state) => state.deleteAllTasks);
   const deleteCompletedTasks = useNotesStore(
@@ -28,12 +38,44 @@ export default function ChecklistsScreen() {
   const deleteTask = useNotesStore((state) => state.deleteTask);
   const markAllTasksDone = useNotesStore((state) => state.markAllTasksDone);
   const toggleTask = useNotesStore((state) => state.toggleTask);
+  const updateTask = useNotesStore((state) => state.updateTask);
   const normalizedQuery = normalizeSearch(searchQuery);
   const filteredTasks = tasks.filter((task) => {
     if (!normalizedQuery) return true;
 
     return task.text.toLowerCase().includes(normalizedQuery);
   });
+
+  const startEditingTask = (task: Task) => {
+    setEditingTaskId(task.id);
+    setEditingTaskText(task.text);
+  };
+
+  const clearEditingTask = () => {
+    setEditingTaskId(null);
+    setEditingTaskText("");
+  };
+
+  const saveEditingTask = () => {
+    if (editingTaskId) {
+      const nextText = editingTaskText.trim();
+
+      if (nextText) {
+        updateTask(editingTaskId, { text: nextText });
+      }
+    }
+
+    clearEditingTask();
+    Keyboard.dismiss();
+  };
+
+  const handleDeleteTask = (id: string) => {
+    deleteTask(id);
+
+    if (editingTaskId === id) {
+      clearEditingTask();
+    }
+  };
 
   const handleSectionAction = (action: ItemAction) => {
     if (action === "markAll") {
@@ -45,7 +87,10 @@ export default function ChecklistsScreen() {
       showDeleteConfirm({
         title: "Borrar tareas completadas",
         message: "¿Seguro que quieres borrar todas las tareas completadas?",
-        onConfirm: deleteCompletedTasks,
+        onConfirm: () => {
+          deleteCompletedTasks();
+          clearEditingTask();
+        },
       });
       return;
     }
@@ -54,7 +99,10 @@ export default function ChecklistsScreen() {
       showDeleteConfirm({
         title: "Borrar tareas",
         message: "¿Seguro que quieres borrar todas las tareas?",
-        onConfirm: deleteAllTasks,
+        onConfirm: () => {
+          deleteAllTasks();
+          clearEditingTask();
+        },
       });
     }
   };
@@ -67,29 +115,41 @@ export default function ChecklistsScreen() {
         <FlashList
           data={filteredTasks}
           estimatedItemSize={160}
+          keyboardShouldPersistTaps="handled"
           keyExtractor={(item) => item.id}
+          maintainVisibleContentPosition={{ disabled: true }}
           ListHeaderComponent={
             <View>
               <View style={styles.sectionHeader}>
                 <Text style={[styles.title, { color: theme.text }]}>
                   Tareas
                 </Text>
-                <SectionActionsMenu
-                  items={[
-                    { action: "markAll", label: "Marcar todas como hechas" },
-                    {
-                      action: "deleteCompleted",
-                      label: "Borrar completadas",
-                      destructive: true,
-                    },
-                    {
-                      action: "deleteAll",
-                      label: "Borrar todas",
-                      destructive: true,
-                    },
-                  ]}
-                  onSelect={handleSectionAction}
-                />
+                {editingTaskId ? (
+                  <Pressable
+                    accessibilityLabel="Guardar tarea"
+                    onPress={saveEditingTask}
+                    style={[styles.saveButton, { backgroundColor: "#22C55E" }]}
+                  >
+                    <Ionicons color="#FFFFFF" name="checkmark" size={22} />
+                  </Pressable>
+                ) : (
+                  <SectionActionsMenu
+                    items={[
+                      { action: "markAll", label: "Marcar todas como hechas" },
+                      {
+                        action: "deleteCompleted",
+                        label: "Borrar completadas",
+                        destructive: true,
+                      },
+                      {
+                        action: "deleteAll",
+                        label: "Borrar todas",
+                        destructive: true,
+                      },
+                    ]}
+                    onSelect={handleSectionAction}
+                  />
+                )}
               </View>
               <TextInput
                 onChangeText={setSearchQuery}
@@ -118,8 +178,11 @@ export default function ChecklistsScreen() {
           scrollEnabled={!isRowSwiping}
           renderItem={({ item }) => (
             <TaskRow
-              onDelete={deleteTask}
-              onPressText={(id) => router.push(`/item/${id}`)}
+              editText={editingTaskText}
+              isEditing={editingTaskId === item.id}
+              onChangeEditText={setEditingTaskText}
+              onDelete={handleDeleteTask}
+              onPressText={startEditingTask}
               onSwipeEnd={() => setIsRowSwiping(false)}
               onSwipeStart={() => setIsRowSwiping(true)}
               onToggle={toggleTask}
@@ -151,6 +214,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
+  },
+  saveButton: {
+    alignItems: "center",
+    borderRadius: 16,
+    height: 40,
+    justifyContent: "center",
+    width: 40,
   },
   searchInput: {
     borderRadius: 16,
