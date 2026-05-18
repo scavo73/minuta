@@ -20,12 +20,12 @@ function normalizeSearch(value: string) {
 export default function NotasScreen() {
   const { theme } = useMinutaTheme();
   const [searchQuery, setSearchQuery] = useState("");
+  const [isRowSwiping, setIsRowSwiping] = useState(false);
   const notes = useNotesStore((state) => state.notes);
   const archiveNote = useNotesStore((state) => state.archiveNote);
   const archiveAllNotes = useNotesStore((state) => state.archiveAllNotes);
   const deleteAllNotes = useNotesStore((state) => state.deleteAllNotes);
   const deleteNote = useNotesStore((state) => state.deleteNote);
-  const markAllNotes = useNotesStore((state) => state.markAllNotes);
   const normalizedQuery = normalizeSearch(searchQuery);
   const visibleNotes = notes.filter((note) => !note.isArchived);
   const filteredNotes = visibleNotes.filter((note) => {
@@ -38,11 +38,6 @@ export default function NotasScreen() {
   });
 
   const handleSectionAction = (action: ItemAction) => {
-    if (action === "markAll") {
-      markAllNotes();
-      return;
-    }
-
     if (action === "archive") {
       archiveAllNotes();
       return;
@@ -80,7 +75,6 @@ export default function NotasScreen() {
                 <Text style={[styles.title, { color: theme.text }]}>Notas</Text>
                 <SectionActionsMenu
                   items={[
-                    { action: "markAll", label: "Marcar todas" },
                     { action: "archive", label: "Archivar todas" },
                     {
                       action: "deleteAll",
@@ -115,10 +109,13 @@ export default function NotasScreen() {
           }
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           contentContainerStyle={styles.content}
+          scrollEnabled={!isRowSwiping}
           renderItem={({ item }) => (
             <SwipeableItemCard
               onArchive={() => archiveNote(item.id)}
               onDelete={() => confirmDeleteNote(item.id)}
+              onSwipeEnd={() => setIsRowSwiping(false)}
+              onSwipeStart={() => setIsRowSwiping(true)}
             >
               <NoteCard
                 note={item}

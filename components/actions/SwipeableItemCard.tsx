@@ -1,8 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
-import { PropsWithChildren, useRef } from "react";
+import * as Haptics from "expo-haptics";
+import { PropsWithChildren, useEffect, useRef } from "react";
 import {
   Animated,
   PanResponder,
+  type PanResponderGestureState,
   Pressable,
   StyleSheet,
   Text,
@@ -14,38 +16,92 @@ import { radius, spacing, typography } from "../../constants/theme";
 interface SwipeableItemCardProps {
   onArchive: () => void;
   onDelete: () => void;
+  onSwipeEnd?: () => void;
+  onSwipeStart?: () => void;
 }
 
 const actionWidth = 88;
 const maxSwipe = actionWidth * 2;
+const openThreshold = actionWidth;
 
 export function SwipeableItemCard({
   children,
   onArchive,
   onDelete,
+  onSwipeEnd,
+  onSwipeStart,
 }: PropsWithChildren<SwipeableItemCardProps>) {
   const translateX = useRef(new Animated.Value(0)).current;
   const startX = useRef(0);
+  const hasTriggeredHaptic = useRef(false);
+  const isOpen = useRef(false);
+  const isSwiping = useRef(false);
+  const swipeEnd = useRef(onSwipeEnd);
+  const swipeStart = useRef(onSwipeStart);
+
+  useEffect(() => {
+    swipeEnd.current = onSwipeEnd;
+    swipeStart.current = onSwipeStart;
+  }, [onSwipeEnd, onSwipeStart]);
+
+  const beginSwipe = () => {
+    if (isSwiping.current) return;
+
+    isSwiping.current = true;
+    swipeStart.current?.();
+  };
+
+  const endSwipe = () => {
+    if (!isSwiping.current) return;
+
+    isSwiping.current = false;
+    swipeEnd.current?.();
+  };
 
   const close = () => {
     Animated.spring(translateX, {
       toValue: 0,
       useNativeDriver: true,
-    }).start();
+    }).start(() => {
+      isOpen.current = false;
+      endSwipe();
+    });
   };
 
   const open = () => {
     Animated.spring(translateX, {
       toValue: -maxSwipe,
       useNativeDriver: true,
-    }).start();
+    }).start(() => {
+      isOpen.current = true;
+      endSwipe();
+    });
   };
+
+  const triggerThresholdHaptic = () => {
+    if (hasTriggeredHaptic.current) return;
+
+    hasTriggeredHaptic.current = true;
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
+      () => undefined,
+    );
+  };
+
+  const shouldSetPanResponder = (
+    _: unknown,
+    gesture: PanResponderGestureState,
+  ) =>
+    Math.abs(gesture.dx) > 12 &&
+    Math.abs(gesture.dx) > Math.abs(gesture.dy) &&
+    (gesture.dx < 0 || isOpen.current);
 
   const panResponder = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_, gesture) =>
-        Math.abs(gesture.dx) > 12 && Math.abs(gesture.dy) < 12,
+      onMoveShouldSetPanResponderCapture: shouldSetPanResponder,
+      onMoveShouldSetPanResponder: shouldSetPanResponder,
       onPanResponderGrant: () => {
+        beginSwipe();
+        hasTriggeredHaptic.current = false;
         translateX.stopAnimation((value) => {
           startX.current = value;
         });
@@ -56,15 +112,36 @@ export function SwipeableItemCard({
           Math.max(-maxSwipe, startX.current + gesture.dx),
         );
         translateX.setValue(nextX);
+
+        if (!isOpen.current && nextX <= -openThreshold) {
+          triggerThresholdHaptic();
+        }
       },
       onPanResponderRelease: (_, gesture) => {
-        if (gesture.dx < -50 || startX.current < -actionWidth) {
+        const nextX = Math.min(
+          0,
+          Math.max(-maxSwipe, startX.current + gesture.dx),
+        );
+
+        if (isOpen.current) {
+          if (gesture.dx > 0) {
+            close();
+            return;
+          }
+
+          open();
+          return;
+        }
+
+        if (nextX <= -openThreshold) {
           open();
           return;
         }
 
         close();
       },
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderTerminate: close,
     }),
   ).current;
 

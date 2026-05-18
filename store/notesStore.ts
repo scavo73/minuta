@@ -13,6 +13,14 @@ interface NotesStore {
   addNote: (note: Note) => void;
   addTask: (task: Task) => void;
   addIdea: (idea: IdeaNote) => void;
+  updateNote: (
+    id: string,
+    updates: Pick<Note, "title" | "content" | "imageUri">,
+  ) => void;
+  updateIdea: (
+    id: string,
+    updates: Pick<IdeaNote, "title" | "tags" | "color">,
+  ) => void;
 
   deleteNote: (id: string) => void;
   deleteTask: (id: string) => void;
@@ -87,6 +95,32 @@ export const useNotesStore = create<NotesStore>()(
       addIdea: (idea) =>
         set((state) => ({
           ideas: [...state.ideas, idea],
+        })),
+
+      updateNote: (id, updates) =>
+        set((state) => ({
+          notes: state.notes.map((note) =>
+            note.id !== id
+              ? note
+              : {
+                  ...note,
+                  ...updates,
+                  updatedAt: new Date(),
+                },
+          ),
+        })),
+
+      updateIdea: (id, updates) =>
+        set((state) => ({
+          ideas: state.ideas.map((idea) =>
+            idea.id !== id
+              ? idea
+              : {
+                  ...idea,
+                  ...updates,
+                  updatedAt: new Date(),
+                },
+          ),
         })),
 
       deleteNote: (id) =>

@@ -80,10 +80,9 @@ export default function ItemDetailScreen() {
 
   const handleDetailAction = (action: ItemAction) => {
     if (action === "edit") {
-      Alert.alert(
-        "Editar",
-        "TODO: conectar esta acción con el flujo de edición existente.",
-      );
+      if (itemId) {
+        router.push(`/edit/${itemId}`);
+      }
       return;
     }
 

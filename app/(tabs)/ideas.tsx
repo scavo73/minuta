@@ -20,12 +20,12 @@ function normalizeSearch(value: string) {
 export default function IdeasScreen() {
   const { theme } = useMinutaTheme();
   const [searchQuery, setSearchQuery] = useState("");
+  const [isRowSwiping, setIsRowSwiping] = useState(false);
   const ideas = useNotesStore((state) => state.ideas);
   const archiveAllIdeas = useNotesStore((state) => state.archiveAllIdeas);
   const archiveIdea = useNotesStore((state) => state.archiveIdea);
   const deleteAllIdeas = useNotesStore((state) => state.deleteAllIdeas);
   const deleteIdea = useNotesStore((state) => state.deleteIdea);
-  const markAllIdeas = useNotesStore((state) => state.markAllIdeas);
   const normalizedQuery = normalizeSearch(searchQuery);
   const visibleIdeas = ideas.filter((idea) => !idea.isArchived);
   const filteredIdeas = visibleIdeas.filter((idea) => {
@@ -38,11 +38,6 @@ export default function IdeasScreen() {
   });
 
   const handleSectionAction = (action: ItemAction) => {
-    if (action === "markAll") {
-      markAllIdeas();
-      return;
-    }
-
     if (action === "archive") {
       archiveAllIdeas();
       return;
@@ -80,7 +75,6 @@ export default function IdeasScreen() {
                 <Text style={[styles.title, { color: theme.text }]}>Ideas</Text>
                 <SectionActionsMenu
                   items={[
-                    { action: "markAll", label: "Marcar todas" },
                     { action: "archive", label: "Archivar todas" },
                     {
                       action: "deleteAll",
@@ -115,10 +109,13 @@ export default function IdeasScreen() {
           }
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           contentContainerStyle={styles.content}
+          scrollEnabled={!isRowSwiping}
           renderItem={({ item }) => (
             <SwipeableItemCard
               onArchive={() => archiveIdea(item.id)}
               onDelete={() => confirmDeleteIdea(item.id)}
+              onSwipeEnd={() => setIsRowSwiping(false)}
+              onSwipeStart={() => setIsRowSwiping(true)}
             >
               <IdeaCard
                 idea={item}

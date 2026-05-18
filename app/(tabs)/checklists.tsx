@@ -19,6 +19,7 @@ function normalizeSearch(value: string) {
 export default function ChecklistsScreen() {
   const { theme } = useMinutaTheme();
   const [searchQuery, setSearchQuery] = useState("");
+  const [isRowSwiping, setIsRowSwiping] = useState(false);
   const tasks = useNotesStore((state) => state.tasks);
   const deleteAllTasks = useNotesStore((state) => state.deleteAllTasks);
   const deleteCompletedTasks = useNotesStore(
@@ -56,14 +57,6 @@ export default function ChecklistsScreen() {
         onConfirm: deleteAllTasks,
       });
     }
-  };
-
-  const confirmDeleteTask = (id: string) => {
-    showDeleteConfirm({
-      title: "Borrar tarea",
-      message: "¿Seguro que quieres borrar esta tarea?",
-      onConfirm: () => deleteTask(id),
-    });
   };
 
   return (
@@ -122,10 +115,13 @@ export default function ChecklistsScreen() {
           }
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           contentContainerStyle={styles.content}
+          scrollEnabled={!isRowSwiping}
           renderItem={({ item }) => (
             <TaskRow
-              onDelete={confirmDeleteTask}
+              onDelete={deleteTask}
               onPressText={(id) => router.push(`/item/${id}`)}
+              onSwipeEnd={() => setIsRowSwiping(false)}
+              onSwipeStart={() => setIsRowSwiping(true)}
               onToggle={toggleTask}
               task={item}
             />
