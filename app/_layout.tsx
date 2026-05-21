@@ -15,6 +15,8 @@ export default function RootLayout() {
           name="new-item"
           options={{
             presentation: 'modal',
+            //hanimation: 'slide_from_bottom',
+            gestureEnabled: true,
           }}
         />
         <Stack.Screen name="item/[id]" />

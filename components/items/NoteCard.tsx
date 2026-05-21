@@ -62,7 +62,7 @@ export function NoteCard({ note, onPress, variant = 'default' }: NoteCardProps) 
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: radius.lg,
+    borderRadius: radius.md,
     padding: spacing.md,
   },
   homeCard: {
@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
   },
   homeImage: {
     aspectRatio: 1,
-    borderRadius: radius.lg,
+    borderRadius: radius.md,
     height: undefined,
   },
   header: {

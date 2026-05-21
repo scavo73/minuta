@@ -4,23 +4,32 @@ import { createJSONStorage, persist } from "zustand/middleware";
 
 import type { AnyNote, IdeaNote, Note, Task } from "../types";
 
+import { getItems, type MinutaItem } from "../lib/api";
+
 interface NotesStore {
   notes: Note[];
   tasks: Task[];
   ideas: IdeaNote[];
   hasHydrated: boolean;
 
+  isLoading: boolean;
+  error: string | null;
+  fetchItems: () => Promise<void>;
+
   addNote: (note: Note) => void;
   addTask: (task: Task) => void;
   addIdea: (idea: IdeaNote) => void;
+
   updateNote: (
     id: string,
     updates: Pick<Note, "title" | "content" | "imageUri">,
   ) => void;
+
   updateIdea: (
     id: string,
     updates: Pick<IdeaNote, "title" | "tags" | "color">,
   ) => void;
+
   updateTask: (id: string, updates: Pick<Task, "text">) => void;
 
   deleteNote: (id: string) => void;
@@ -47,10 +56,6 @@ interface NotesStore {
   setHasHydrated: (value: boolean) => void;
 }
 
-type PersistedNotesState = Partial<
-  Pick<NotesStore, "notes" | "tasks" | "ideas">
->;
-
 function getActivityTime(item: Pick<AnyNote, "createdAt" | "updatedAt">) {
   return (item.updatedAt ?? item.createdAt).getTime();
 }
@@ -61,39 +66,35 @@ function sortByRecent<T extends Pick<AnyNote, "createdAt" | "updatedAt">>(
   return [...items].sort((a, b) => getActivityTime(b) - getActivityTime(a));
 }
 
-function sortTasksByCreated(items: Task[]) {
-  return [...items].sort(
-    (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
-  );
-}
-
-function reviveNoteDates(note: Note): Note {
-  const createdAt = new Date(note.createdAt);
-
+function mapRemoteNoteToLocal(item: MinutaItem): Note {
   return {
-    ...note,
-    createdAt,
-    updatedAt: note.updatedAt ? new Date(note.updatedAt) : createdAt,
+    id: item.id,
+    title: item.title,
+    content: item.content ?? "",
+    imageUri: item.image_url ?? undefined,
+    createdAt: new Date(item.created_at),
+    updatedAt: new Date(item.updated_at),
   };
 }
 
-function reviveTaskDates(task: Task): Task {
-  const createdAt = new Date(task.createdAt);
-
+function mapRemoteIdeaToLocal(item: MinutaItem): IdeaNote {
   return {
-    ...task,
-    createdAt,
-    updatedAt: task.updatedAt ? new Date(task.updatedAt) : createdAt,
+    id: item.id,
+    title: item.title,
+    color: item.color ?? "#FFCC00",
+    tags: [],
+    createdAt: new Date(item.created_at),
+    updatedAt: new Date(item.updated_at),
   };
 }
 
-function reviveIdeaDates(idea: IdeaNote): IdeaNote {
-  const createdAt = new Date(idea.createdAt);
-
+function mapRemoteChecklistToLocal(item: MinutaItem): Task {
   return {
-    ...idea,
-    createdAt,
-    updatedAt: idea.updatedAt ? new Date(idea.updatedAt) : createdAt,
+    id: item.id,
+    text: item.title,
+    isCompleted: false,
+    createdAt: new Date(item.created_at),
+    updatedAt: new Date(item.updated_at),
   };
 }
 
@@ -104,6 +105,42 @@ export const useNotesStore = create<NotesStore>()(
       tasks: [],
       ideas: [],
       hasHydrated: false,
+      isLoading: false,
+      error: null,
+
+      fetchItems: async () => {
+
+
+        try {
+          set({
+            isLoading: true,
+            error: null,
+          });
+
+          // console.log("Cargando items desde API...");
+          const items = await getItems();
+          // console.log("Items recibidos desde API:", items);
+
+          set({
+            notes: items
+              .filter((item) => item.type === "note")
+              .map(mapRemoteNoteToLocal),
+
+            ideas: items
+              .filter((item) => item.type === "idea")
+              .map(mapRemoteIdeaToLocal),
+
+            tasks: items
+              .filter((item) => item.type === "checklist")
+              .map(mapRemoteChecklistToLocal),
+
+            isLoading: false,
+            error: null,
+          });
+        } catch (error) {
+          console.log("ERROR fetchItems:", error);
+        }
+      },
 
       addNote: (note) =>
         set((state) => ({
@@ -127,10 +164,10 @@ export const useNotesStore = create<NotesStore>()(
               note.id !== id
                 ? note
                 : {
-                    ...note,
-                    ...updates,
-                    updatedAt: new Date(),
-                  },
+                  ...note,
+                  ...updates,
+                  updatedAt: new Date(),
+                },
             ),
           ),
         })),
@@ -142,10 +179,10 @@ export const useNotesStore = create<NotesStore>()(
               idea.id !== id
                 ? idea
                 : {
-                    ...idea,
-                    ...updates,
-                    updatedAt: new Date(),
-                  },
+                  ...idea,
+                  ...updates,
+                  updatedAt: new Date(),
+                },
             ),
           ),
         })),
@@ -156,9 +193,9 @@ export const useNotesStore = create<NotesStore>()(
             task.id !== id
               ? task
               : {
-                  ...task,
-                  ...updates,
-                },
+                ...task,
+                ...updates,
+              },
           ),
         })),
 
@@ -397,33 +434,10 @@ export const useNotesStore = create<NotesStore>()(
       setHasHydrated: (value) => set({ hasHydrated: value }),
     }),
     {
-      name: "minuta-storage",
+      name: "minuta-storage-api",
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: (state) => ({
-        notes: state.notes,
-        tasks: state.tasks,
-        ideas: state.ideas,
-      }),
-      merge: (persistedState, currentState) => {
-        const persisted = persistedState as PersistedNotesState;
-
-        return {
-          ...currentState,
-          ...persisted,
-          notes: sortByRecent(
-            persisted.notes?.map((note) => reviveNoteDates(note)) ??
-              currentState.notes,
-          ),
-          tasks: sortTasksByCreated(
-            persisted.tasks?.map((task) => reviveTaskDates(task)) ??
-              currentState.tasks,
-          ),
-          ideas: sortByRecent(
-            persisted.ideas?.map((idea) => reviveIdeaDates(idea)) ??
-              currentState.ideas,
-          ),
-        };
-      },
+      partialize: () => ({}),
+      merge: (_persistedState, currentState) => currentState,
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);
       },

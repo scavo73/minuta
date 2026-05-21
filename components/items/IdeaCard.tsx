@@ -58,11 +58,11 @@ export function IdeaCard({ idea, onPress, variant = 'default' }: IdeaCardProps) 
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: radius.lg,
+    borderRadius: radius.md,
     padding: spacing.md,
   },
   homeCard: {
-    borderRadius: radius.xl,
+    borderRadius: radius.md,
     padding: spacing.md,
   },
   header: {

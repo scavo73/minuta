@@ -105,7 +105,7 @@ export default function HomeScreen() {
   const ideas = useNotesStore((state) => state.ideas);
   const tasks = useNotesStore((state) => state.tasks);
   const toggleTask = useNotesStore((state) => state.toggleTask);
-  const seedDemoData = useNotesStore((state) => state.seedDemoData);
+  const fetchItems = useNotesStore((state) => state.fetchItems);
 
   const allItems = [
     ...notes.filter((note) => !note.isArchived),
@@ -133,8 +133,8 @@ export default function HomeScreen() {
   });
 
   useEffect(() => {
-    seedDemoData();
-  }, [seedDemoData]);
+    fetchItems();
+  }, [fetchItems]);
 
   useEffect(() => {
     Animated.timing(widgetAnim, {
@@ -182,14 +182,14 @@ export default function HomeScreen() {
               styles.widgetAnimatedWrapper,
               widgetHeight > 0
                 ? {
-                    height: animatedWidgetHeight,
-                    marginTop: animatedWidgetMarginTop,
-                    opacity: widgetAnim,
-                  }
+                  height: animatedWidgetHeight,
+                  marginTop: animatedWidgetMarginTop,
+                  opacity: widgetAnim,
+                }
                 : {
-                    opacity: widgetAnim,
-                    marginTop: 12,
-                  },
+                  opacity: widgetAnim,
+                  marginTop: 12,
+                },
             ]}
           >
             <View
