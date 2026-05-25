@@ -18,6 +18,7 @@ import { z } from 'zod';
 import { radius, spacing, typography } from '../constants/theme';
 import { useMinutaTheme } from '../constants/useMinutaTheme';
 import { useNotesStore } from '../store/notesStore';
+import { createItem } from '../lib/api';
 import type { NoteKind } from '../types';
 
 const noteSchema = z.object({
@@ -62,7 +63,7 @@ function getValidationErrors(error: z.ZodError): FormErrors {
 
 export default function NuevaNotaScreen() {
   const { theme } = useMinutaTheme();
-  const { addIdea, addNote, addTask } = useNotesStore();
+  const fetchItems = useNotesStore((state) => state.fetchItems);
   const [kind, setKind] = useState<NoteKind>('note');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -71,6 +72,7 @@ export default function NuevaNotaScreen() {
   const [tagsText, setTagsText] = useState('');
   const [color, setColor] = useState(ideaColors[0]);
   const [errors, setErrors] = useState<FormErrors>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const pickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -90,15 +92,69 @@ export default function NuevaNotaScreen() {
     }
   };
 
-  const handleSubmit = () => {
-    const now = new Date();
-    const id = Date.now().toString();
+  const handleSubmit = async () => {
+    if (isSubmitting) return;
 
-    if (kind === 'note') {
-      const result = noteSchema.safeParse({
+    try {
+      setIsSubmitting(true);
+      setErrors({});
+
+      if (kind === 'note') {
+        const result = noteSchema.safeParse({
+          title: title.trim(),
+          content: content.trim(),
+          imageUri,
+        });
+
+        if (!result.success) {
+          setErrors(getValidationErrors(result.error));
+          return;
+        }
+
+        await createItem({
+          title: result.data.title,
+          type: 'note',
+          content: result.data.content,
+          image_url: result.data.imageUri?.startsWith('http')
+            ? result.data.imageUri
+            : undefined,
+        });
+
+        await fetchItems();
+        router.back();
+        return;
+      }
+
+      if (kind === 'task') {
+        const result = taskSchema.safeParse({
+          text: taskText.trim(),
+        });
+
+        if (!result.success) {
+          setErrors(getValidationErrors(result.error));
+          return;
+        }
+
+        await createItem({
+          title: result.data.text,
+          type: 'checklist',
+          content: result.data.text,
+        });
+
+        await fetchItems();
+        router.back();
+        return;
+      }
+
+      const tags = tagsText
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter(Boolean);
+
+      const result = ideaSchema.safeParse({
         title: title.trim(),
-        content: content.trim(),
-        imageUri,
+        tags,
+        color,
       });
 
       if (!result.success) {
@@ -106,63 +162,21 @@ export default function NuevaNotaScreen() {
         return;
       }
 
-      addNote({
-        id,
+      await createItem({
         title: result.data.title,
-        content: result.data.content,
-        imageUri: result.data.imageUri,
-        createdAt: now,
-        updatedAt: now,
+        type: 'idea',
+        color: result.data.color,
       });
+
+      await fetchItems();
       router.back();
-      return;
-    }
-
-    if (kind === 'task') {
-      const result = taskSchema.safeParse({
-        text: taskText.trim(),
+    } catch {
+      setErrors({
+        title: 'No se pudo guardar. Revisa la conexión con la API.',
       });
-
-      if (!result.success) {
-        setErrors(getValidationErrors(result.error));
-        return;
-      }
-
-      addTask({
-        id,
-        text: result.data.text,
-        isCompleted: false,
-        createdAt: now,
-        updatedAt: now,
-      });
-      router.back();
-      return;
+    } finally {
+      setIsSubmitting(false);
     }
-
-    const tags = tagsText
-      .split(',')
-      .map((tag) => tag.trim())
-      .filter(Boolean);
-    const result = ideaSchema.safeParse({
-      title: title.trim(),
-      tags,
-      color,
-    });
-
-    if (!result.success) {
-      setErrors(getValidationErrors(result.error));
-      return;
-    }
-
-    addIdea({
-      id,
-      title: result.data.title,
-      tags: result.data.tags ?? [],
-      color: result.data.color,
-      createdAt: now,
-      updatedAt: now,
-    });
-    router.back();
   };
 
   return (
@@ -378,7 +392,9 @@ export default function NuevaNotaScreen() {
             onPress={handleSubmit}
             style={[styles.submitButton, { backgroundColor: theme.primary }]}
           >
-            <Text style={styles.submitText}>Guardar</Text>
+            <Text style={styles.submitText}>
+              {isSubmitting ? 'Guardando...' : 'Guardar'}
+            </Text>
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>

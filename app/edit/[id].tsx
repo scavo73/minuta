@@ -46,9 +46,9 @@ export default function EditItemScreen() {
           item={item}
           kind={isTextNote(item) ? "note" : "idea"}
           onCancel={() => router.back()}
-          onSave={(values) => {
+          onSave={async (values) => {
             if (values.kind === "note" && isTextNote(item)) {
-              updateNote(item.id, {
+              await updateNote(item.id, {
                 title: values.title,
                 content: values.content,
                 imageUri: values.imageUri,
@@ -58,7 +58,7 @@ export default function EditItemScreen() {
             }
 
             if (values.kind === "idea" && isIdeaNote(item)) {
-              updateIdea(item.id, {
+              await updateIdea(item.id, {
                 title: values.title,
                 tags: values.tags,
                 color: values.color,

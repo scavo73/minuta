@@ -4,7 +4,12 @@ import { createJSONStorage, persist } from "zustand/middleware";
 
 import type { AnyNote, IdeaNote, Note, Task } from "../types";
 
-import { getItems, type MinutaItem } from "../lib/api";
+import {
+  deleteItem as deleteRemoteItem,
+  getItems,
+  updateItem as updateRemoteItem,
+  type MinutaItem,
+} from "../lib/api";
 
 interface NotesStore {
   notes: Note[];
@@ -23,18 +28,19 @@ interface NotesStore {
   updateNote: (
     id: string,
     updates: Pick<Note, "title" | "content" | "imageUri">,
-  ) => void;
+  ) => Promise<void>;
 
   updateIdea: (
     id: string,
     updates: Pick<IdeaNote, "title" | "tags" | "color">,
-  ) => void;
+  ) => Promise<void>;
 
-  updateTask: (id: string, updates: Pick<Task, "text">) => void;
+  updateTask: (id: string, updates: Pick<Task, "text">) => Promise<void>;
 
-  deleteNote: (id: string) => void;
-  deleteTask: (id: string) => void;
-  deleteIdea: (id: string) => void;
+  deleteNote: (id: string) => Promise<void>;
+  deleteTask: (id: string) => Promise<void>;
+  deleteIdea: (id: string) => Promise<void>;
+  deleteItem: (id: string) => Promise<void>;
 
   archiveNote: (id: string) => void;
   archiveIdea: (id: string) => void;
@@ -48,9 +54,8 @@ interface NotesStore {
   deleteCompletedTasks: () => void;
   deleteAllTasks: () => void;
   convertIdeaToTask: (id: string) => void;
-  toggleTask: (id: string) => void;
+  toggleTask: (id: string) => Promise<void>;
   getItemById: (id: string) => AnyNote | undefined;
-  deleteItem: (id: string) => void;
   getAllItems: () => AnyNote[];
   seedDemoData: () => void;
   setHasHydrated: (value: boolean) => void;
@@ -92,7 +97,7 @@ function mapRemoteChecklistToLocal(item: MinutaItem): Task {
   return {
     id: item.id,
     text: item.title,
-    isCompleted: false,
+    isCompleted: item.is_completed,
     createdAt: new Date(item.created_at),
     updatedAt: new Date(item.updated_at),
   };
@@ -109,17 +114,13 @@ export const useNotesStore = create<NotesStore>()(
       error: null,
 
       fetchItems: async () => {
-
-
         try {
           set({
             isLoading: true,
             error: null,
           });
 
-          // console.log("Cargando items desde API...");
           const items = await getItems();
-          // console.log("Items recibidos desde API:", items);
 
           set({
             notes: items
@@ -138,7 +139,13 @@ export const useNotesStore = create<NotesStore>()(
             error: null,
           });
         } catch (error) {
-          console.log("ERROR fetchItems:", error);
+          set({
+            isLoading: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : "Error al cargar los datos",
+          });
         }
       },
 
@@ -157,69 +164,105 @@ export const useNotesStore = create<NotesStore>()(
           ideas: sortByRecent([...state.ideas, idea]),
         })),
 
-      updateNote: (id, updates) =>
-        set((state) => ({
-          notes: sortByRecent(
-            state.notes.map((note) =>
-              note.id !== id
-                ? note
-                : {
-                  ...note,
-                  ...updates,
-                  updatedAt: new Date(),
-                },
-            ),
-          ),
-        })),
+      updateNote: async (id, updates) => {
+        try {
+          await updateRemoteItem(id, {
+            title: updates.title,
+            content: updates.content,
+            image_url: updates.imageUri?.startsWith("http")
+              ? updates.imageUri
+              : undefined,
+          });
 
-      updateIdea: (id, updates) =>
-        set((state) => ({
-          ideas: sortByRecent(
-            state.ideas.map((idea) =>
-              idea.id !== id
-                ? idea
-                : {
-                  ...idea,
-                  ...updates,
-                  updatedAt: new Date(),
-                },
-            ),
-          ),
-        })),
+          await get().fetchItems();
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error
+                ? error.message
+                : "Error al actualizar la nota",
+          });
+        }
+      },
 
-      updateTask: (id, updates) =>
-        set((state) => ({
-          tasks: state.tasks.map((task) =>
-            task.id !== id
-              ? task
-              : {
-                ...task,
-                ...updates,
-              },
-          ),
-        })),
+      updateIdea: async (id, updates) => {
+        try {
+          await updateRemoteItem(id, {
+            title: updates.title,
+            color: updates.color,
+          });
 
-      deleteNote: (id) =>
-        set((state) => ({
-          notes: state.notes.filter((note) => note.id !== id),
-        })),
+          await get().fetchItems();
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error
+                ? error.message
+                : "Error al actualizar la idea",
+          });
+        }
+      },
 
-      deleteTask: (id) =>
-        set((state) => ({
-          tasks: state.tasks.filter((task) => task.id !== id),
-        })),
+      updateTask: async (id, updates) => {
+        try {
+          await updateRemoteItem(id, {
+            title: updates.text,
+            content: updates.text,
+          });
 
-      deleteIdea: (id) =>
-        set((state) => ({
-          ideas: state.ideas.filter((idea) => idea.id !== id),
-        })),
+          await get().fetchItems();
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error
+                ? error.message
+                : "Error al actualizar la tarea",
+          });
+        }
+      },
+
+      deleteNote: async (id) => {
+        await get().deleteItem(id);
+      },
+
+      deleteTask: async (id) => {
+        await get().deleteItem(id);
+      },
+
+      deleteIdea: async (id) => {
+        await get().deleteItem(id);
+      },
+
+      deleteItem: async (id) => {
+        try {
+          await deleteRemoteItem(id);
+
+          set((state) => ({
+            notes: state.notes.filter((note) => note.id !== id),
+            tasks: state.tasks.filter((task) => task.id !== id),
+            ideas: state.ideas.filter((idea) => idea.id !== id),
+            error: null,
+          }));
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error
+                ? error.message
+                : "Error al eliminar el item",
+          });
+        }
+      },
 
       archiveNote: (id) =>
         set((state) => ({
           notes: state.notes.map((note) =>
             note.id !== id
               ? note
-              : { ...note, isArchived: true, updatedAt: new Date() },
+              : {
+                ...note,
+                isArchived: true,
+                updatedAt: new Date(),
+              },
           ),
         })),
 
@@ -228,7 +271,11 @@ export const useNotesStore = create<NotesStore>()(
           ideas: state.ideas.map((idea) =>
             idea.id !== id
               ? idea
-              : { ...idea, isArchived: true, updatedAt: new Date() },
+              : {
+                ...idea,
+                isArchived: true,
+                updatedAt: new Date(),
+              },
           ),
         })),
 
@@ -300,7 +347,11 @@ export const useNotesStore = create<NotesStore>()(
             ideas: state.ideas.map((item) =>
               item.id !== id
                 ? item
-                : { ...item, isArchived: true, updatedAt: now },
+                : {
+                  ...item,
+                  isArchived: true,
+                  updatedAt: now,
+                },
             ),
             tasks: [
               {
@@ -315,18 +366,26 @@ export const useNotesStore = create<NotesStore>()(
           };
         }),
 
-      toggleTask: (id) =>
-        set((state) => ({
-          tasks: state.tasks.map((task) =>
-            task.id !== id
-              ? task
-              : {
-                ...task,
-                isCompleted: !task.isCompleted,
-                updatedAt: new Date(),
-              },
-          ),
-        })),
+      toggleTask: async (id) => {
+        try {
+          const task = get().tasks.find((item) => item.id === id);
+
+          if (!task) return;
+
+          await updateRemoteItem(id, {
+            is_completed: !task.isCompleted,
+          });
+
+          await get().fetchItems();
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error
+                ? error.message
+                : "Error al actualizar la tarea",
+          });
+        }
+      },
 
       getItemById: (id) => {
         const state = get();
@@ -337,13 +396,6 @@ export const useNotesStore = create<NotesStore>()(
           state.ideas.find((idea) => idea.id === id)
         );
       },
-
-      deleteItem: (id) =>
-        set((state) => ({
-          notes: state.notes.filter((note) => note.id !== id),
-          tasks: state.tasks.filter((task) => task.id !== id),
-          ideas: state.ideas.filter((idea) => idea.id !== id),
-        })),
 
       getAllItems: () => {
         const state = get();

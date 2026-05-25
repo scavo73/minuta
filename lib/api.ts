@@ -1,5 +1,5 @@
 const BASE_URL =
-    process.env.EXPO_PUBLIC_API_URL ?? "http://192.168.18.34:3000/api";
+    process.env.EXPO_PUBLIC_API_URL ?? "http://192.168.50.70:3000/api";
 
 export type MinutaItemType = 'note' | 'checklist' | 'idea';
 
@@ -12,6 +12,7 @@ export type MinutaItem = {
     color: string | null;
     created_at: string;
     updated_at: string;
+    is_completed: boolean;
 };
 
 export type ChecklistItem = {
@@ -27,7 +28,9 @@ export type CreateItemInput = {
     content?: string;
     image_url?: string;
     color?: string;
+    is_completed?: boolean;
 };
+
 
 export type UpdateItemInput = Partial<CreateItemInput>;
 
