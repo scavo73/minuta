@@ -2,10 +2,21 @@
 
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { useEffect } from "react";
 
 import { GluestackUIProvider } from "../components/ui/gluestack-ui-provider";
+import { useFoldersStore } from "../store/foldersStore";
+import { useNotesStore } from "../store/notesStore";
 
 export default function RootLayout() {
+  const fetchFolders = useFoldersStore((state) => state.fetchFolders);
+  const fetchItems = useNotesStore((state) => state.fetchItems);
+
+  useEffect(() => {
+    fetchFolders();
+    fetchItems();
+  }, [fetchFolders, fetchItems]);
+
   return (
     <GluestackUIProvider mode="system">
       <StatusBar style="auto" />

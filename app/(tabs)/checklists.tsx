@@ -1,7 +1,7 @@
 import { FlashList } from "@shopify/flash-list";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Keyboard,
   Pressable,
@@ -31,6 +31,7 @@ import {
   groupItemsByFolder,
   matchesFolderFilter,
 } from "../../lib/folders";
+import { createFolder } from "../../lib/foldersService";
 import { useFoldersStore } from "../../store/foldersStore";
 import { useCreateContextStore } from "../../store/createContextStore";
 import { useNotesStore } from "../../store/notesStore";
@@ -63,7 +64,6 @@ export default function ChecklistsScreen() {
   const [selectedFolderId, setSelectedFolderId] =
     useState<FolderFilterId>(ALL_FOLDERS_ID);
   const folders = useFoldersStore((state) => state.folders);
-  const addFolder = useFoldersStore((state) => state.addFolder);
   const setCreateContext = useCreateContextStore(
     (state) => state.setCreateContext,
   );
@@ -136,6 +136,16 @@ export default function ChecklistsScreen() {
           task,
         }));
 
+  useEffect(() => {
+    if (
+      selectedFolderId !== ALL_FOLDERS_ID &&
+      selectedFolderId !== NO_FOLDER_ID &&
+      !folders.some((folder) => folder.id === selectedFolderId)
+    ) {
+      setSelectedFolderId(ALL_FOLDERS_ID);
+    }
+  }, [folders, selectedFolderId]);
+
   useFocusEffect(
     useCallback(() => {
       setCreateContext({
@@ -148,6 +158,17 @@ export default function ChecklistsScreen() {
       });
     }, [selectedFolderId, setCreateContext]),
   );
+
+  const handleSelectFolder = (folderId: FolderFilterId) => {
+    setSelectedFolderId(folderId);
+    setCreateContext({
+      folderId:
+        folderId === ALL_FOLDERS_ID || folderId === NO_FOLDER_ID
+          ? null
+          : folderId,
+      kind: "task",
+    });
+  };
 
   const startEditingTask = (task: Task) => {
     setEditingTaskId(task.id);
@@ -291,7 +312,7 @@ export default function ChecklistsScreen() {
               <FolderChips
                 folders={folderChips}
                 selectedFolderId={selectedFolderId}
-                onSelectFolder={setSelectedFolderId}
+                onSelectFolder={handleSelectFolder}
               />
             </View>
           }
@@ -332,7 +353,7 @@ export default function ChecklistsScreen() {
         folders={folders}
         isOpen={isFoldersModalOpen}
         onClose={() => setIsFoldersModalOpen(false)}
-        onCreateFolder={addFolder}
+        onCreateFolder={createFolder}
       />
     </SafeAreaView>
   );

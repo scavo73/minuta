@@ -3,18 +3,33 @@ const BASE_URL =
 
 export type MinutaItemType = "note" | "checklist" | "idea";
 
+export type RemoteFolder = {
+  id: string;
+  name: string;
+  created_at?: string | number;
+  createdAt?: string | number;
+  updated_at?: string | number | null;
+  updatedAt?: string | number | null;
+};
+
 export type MinutaItem = {
   id: string;
   title: string;
-  content: string | null;
-  type: MinutaItemType;
-  image_url: string | null;
-  color: string | null;
-  created_at: string;
-  updated_at: string;
-  is_completed: boolean;
+  content?: string | null;
+  text?: string | null;
+  type?: MinutaItemType;
+  image_url?: string | null;
+  imageUrl?: string | null;
+  color?: string | null;
+  created_at?: string | number;
+  createdAt?: string | number;
+  updated_at?: string | number;
+  updatedAt?: string | number;
+  is_completed?: boolean;
+  isCompleted?: boolean;
   folder_id?: string | null;
-  tags: string[];
+  folderId?: string | null;
+  tags?: string[];
 };
 
 export type ChecklistItem = {
@@ -28,147 +43,181 @@ export type CreateItemInput = {
   title: string;
   type: MinutaItemType;
   content?: string;
+  text?: string;
   image_url?: string;
+  imageUrl?: string;
   color?: string;
+  tags?: string[];
   is_completed?: boolean;
+  isCompleted?: boolean;
   folder_id?: string | null;
+  folderId?: string | null;
 };
 
 export type UpdateItemInput = Partial<CreateItemInput>;
 
-export async function getItems(): Promise<MinutaItem[]> {
-  // console.log("BASE_URL usada por la app:", BASE_URL);
+function withFolderAliases<T extends CreateItemInput | UpdateItemInput>(
+  data: T,
+) {
+  const hasFolderValue = "folder_id" in data || "folderId" in data;
 
-  const res = await fetch(`${BASE_URL}/notes`);
+  if (!hasFolderValue) return data;
+
+  const folderId = data.folder_id ?? data.folderId ?? null;
+
+  return {
+    ...data,
+    folder_id: folderId,
+    folderId,
+  };
+}
+
+function getResourceForType(type: MinutaItemType) {
+  if (type === "checklist") return "tasks";
+  if (type === "idea") return "ideas";
+  return "notes";
+}
+
+async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${BASE_URL}${path}`, init);
 
   if (!res.ok) {
-    throw new Error("Error al cargar items");
+    throw new Error(`Error en ${path}`);
   }
 
   return res.json();
 }
 
-export async function createItem(data: CreateItemInput): Promise<MinutaItem> {
-  const res = await fetch(`${BASE_URL}/notes`, {
-    method: "POST",
+async function requestVoid(path: string, init?: RequestInit): Promise<void> {
+  const res = await fetch(`${BASE_URL}${path}`, init);
+
+  if (!res.ok) {
+    throw new Error(`Error en ${path}`);
+  }
+}
+
+function jsonInit(method: "POST" | "PATCH" | "PUT", data: unknown) {
+  return {
+    method,
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify(data),
-  });
+  };
+}
 
-  if (!res.ok) {
-    throw new Error("Error al crear item");
-  }
+function withoutType<T extends CreateItemInput | UpdateItemInput>(data: T) {
+  const { type: _type, ...payload } = data;
 
-  return res.json();
+  return payload;
+}
+
+export async function getFolders(): Promise<RemoteFolder[]> {
+  return requestJson("/folders");
+}
+
+export async function createFolder(data: {
+  name: string;
+}): Promise<RemoteFolder> {
+  return requestJson("/folders", jsonInit("POST", data));
+}
+
+export async function updateFolder(
+  id: string,
+  data: { name: string },
+): Promise<RemoteFolder> {
+  return requestJson(`/folders/${id}`, jsonInit("PATCH", data));
+}
+
+export async function deleteFolder(id: string): Promise<void> {
+  return requestVoid(`/folders/${id}`, { method: "DELETE" });
+}
+
+export async function getNotes(): Promise<MinutaItem[]> {
+  return requestJson("/notes");
+}
+
+export async function getTasks(): Promise<MinutaItem[]> {
+  return requestJson("/tasks");
+}
+
+export async function getIdeas(): Promise<MinutaItem[]> {
+  return requestJson("/ideas");
+}
+
+export async function getItems(): Promise<MinutaItem[]> {
+  const [notes, tasks, ideas] = await Promise.all([
+    getNotes(),
+    getTasks(),
+    getIdeas(),
+  ]);
+
+  return [
+    ...notes.map((item) => ({ ...item, type: "note" as const })),
+    ...tasks.map((item) => ({ ...item, type: "checklist" as const })),
+    ...ideas.map((item) => ({ ...item, type: "idea" as const })),
+  ];
+}
+
+export async function createItem(data: CreateItemInput): Promise<MinutaItem> {
+  const resource = getResourceForType(data.type);
+  const payload = withoutType(data);
+
+  return requestJson(
+    `/${resource}`,
+    jsonInit("POST", withFolderAliases(payload)),
+  );
 }
 
 export async function updateItem(
   id: string,
   data: UpdateItemInput,
 ): Promise<MinutaItem> {
-  const res = await fetch(`${BASE_URL}/notes/${id}`, {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(data),
-  });
+  const resource = getResourceForType(data.type ?? "note");
+  const payload = withoutType(data);
 
-  if (!res.ok) {
-    throw new Error("Error al actualizar item");
-  }
-
-  return res.json();
+  return requestJson(
+    `/${resource}/${id}`,
+    jsonInit("PATCH", withFolderAliases(payload)),
+  );
 }
 
-export async function deleteItem(id: string): Promise<void> {
-  const res = await fetch(`${BASE_URL}/notes/${id}`, {
+export async function deleteItem(
+  id: string,
+  type: MinutaItemType = "note",
+): Promise<void> {
+  const resource = getResourceForType(type);
+
+  return requestVoid(`/${resource}/${id}`, {
     method: "DELETE",
   });
-
-  if (!res.ok) {
-    throw new Error("Error al eliminar item");
-  }
 }
 
 export async function getChecklistItems(
   checklistId: string,
 ): Promise<ChecklistItem[]> {
-  const res = await fetch(`${BASE_URL}/notes/${checklistId}/checklist-items`);
-
-  if (!res.ok) {
-    throw new Error("Error al cargar checklist items");
-  }
-
-  return res.json();
+  return requestJson(`/tasks/${checklistId}/checklist-items`);
 }
 
 export async function createChecklistItem(
   checklistId: string,
   text: string,
 ): Promise<ChecklistItem> {
-  const res = await fetch(`${BASE_URL}/notes/${checklistId}/checklist-items`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ text }),
-  });
-
-  if (!res.ok) {
-    throw new Error("Error al crear checklist item");
-  }
-
-  return res.json();
+  return requestJson(
+    `/tasks/${checklistId}/checklist-items`,
+    jsonInit("POST", { text }),
+  );
 }
 
 export async function updateChecklistItem(
   itemId: string,
   data: Partial<Pick<ChecklistItem, "text" | "is_completed">>,
 ): Promise<ChecklistItem> {
-  const res = await fetch(`${BASE_URL}/checklist-items/${itemId}`, {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(data),
-  });
-
-  if (!res.ok) {
-    throw new Error("Error al actualizar checklist item");
-  }
-
-  return res.json();
+  return requestJson(`/checklist-items/${itemId}`, jsonInit("PATCH", data));
 }
 
 export async function deleteChecklistItem(itemId: string): Promise<void> {
-  const res = await fetch(`${BASE_URL}/checklist-items/${itemId}`, {
+  return requestVoid(`/checklist-items/${itemId}`, {
     method: "DELETE",
   });
-
-  if (!res.ok) {
-    throw new Error("Error al eliminar checklist item");
-  }
-}
-
-export async function updateIdeaTags(
-  id: string,
-  tags: string[],
-): Promise<string[]> {
-  const res = await fetch(`${BASE_URL}/notes/${id}/tags`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ tags }),
-  });
-
-  if (!res.ok) {
-    throw new Error("Error al actualizar tags");
-  }
-
-  const data = await res.json();
-  return data.tags;
 }

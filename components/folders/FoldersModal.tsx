@@ -121,13 +121,11 @@ export function FoldersModal({
                     >
                       {folder.name}
                     </Text>
-                    <Text
-                      style={[styles.folderCount, { color: theme.mutedText }]}
-                    >
-                      {folder.counts.tasks +
-                        folder.counts.notes +
-                        folder.counts.ideas}
-                    </Text>
+                    <Ionicons
+                      color={theme.mutedText}
+                      name="chevron-forward"
+                      size={18}
+                    />
                   </Pressable>
                 ))}
               </View>
@@ -194,10 +192,6 @@ const styles = StyleSheet.create({
   folderName: {
     flex: 1,
     fontSize: typography.body,
-    fontWeight: "700",
-  },
-  folderCount: {
-    fontSize: typography.small,
     fontWeight: "700",
   },
   empty: {

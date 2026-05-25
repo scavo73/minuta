@@ -1,6 +1,6 @@
 import { FlashList } from "@shopify/flash-list";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -24,6 +24,7 @@ import {
   groupItemsByFolder,
   matchesFolderFilter,
 } from "../../lib/folders";
+import { createFolder } from "../../lib/foldersService";
 import { useFoldersStore } from "../../store/foldersStore";
 import { useCreateContextStore } from "../../store/createContextStore";
 import { useNotesStore } from "../../store/notesStore";
@@ -51,7 +52,6 @@ export default function NotasScreen() {
   const [selectedFolderId, setSelectedFolderId] =
     useState<FolderFilterId>(ALL_FOLDERS_ID);
   const folders = useFoldersStore((state) => state.folders);
-  const addFolder = useFoldersStore((state) => state.addFolder);
   const setCreateContext = useCreateContextStore(
     (state) => state.setCreateContext,
   );
@@ -125,6 +125,16 @@ export default function NotasScreen() {
           note,
         }));
 
+  useEffect(() => {
+    if (
+      selectedFolderId !== ALL_FOLDERS_ID &&
+      selectedFolderId !== NO_FOLDER_ID &&
+      !folders.some((folder) => folder.id === selectedFolderId)
+    ) {
+      setSelectedFolderId(ALL_FOLDERS_ID);
+    }
+  }, [folders, selectedFolderId]);
+
   useFocusEffect(
     useCallback(() => {
       setCreateContext({
@@ -137,6 +147,17 @@ export default function NotasScreen() {
       });
     }, [selectedFolderId, setCreateContext]),
   );
+
+  const handleSelectFolder = (folderId: FolderFilterId) => {
+    setSelectedFolderId(folderId);
+    setCreateContext({
+      folderId:
+        folderId === ALL_FOLDERS_ID || folderId === NO_FOLDER_ID
+          ? null
+          : folderId,
+      kind: "note",
+    });
+  };
 
   const handleSectionAction = (action: ItemAction) => {
     if (action === "archive") {
@@ -206,7 +227,7 @@ export default function NotasScreen() {
               <FolderChips
                 folders={folderChips}
                 selectedFolderId={selectedFolderId}
-                onSelectFolder={setSelectedFolderId}
+                onSelectFolder={handleSelectFolder}
               />
               {archivedNotes.length > 0 ? (
                 <ArchivedRow onPress={() => router.push("/archived/notas")} />
@@ -252,7 +273,7 @@ export default function NotasScreen() {
         folders={folders}
         isOpen={isFoldersModalOpen}
         onClose={() => setIsFoldersModalOpen(false)}
-        onCreateFolder={addFolder}
+        onCreateFolder={createFolder}
       />
     </SafeAreaView>
   );

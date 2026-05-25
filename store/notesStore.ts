@@ -7,7 +7,6 @@ import type { AnyNote, IdeaNote, Note, Task } from "../types";
 import {
   deleteItem as deleteRemoteItem,
   getItems,
-  updateIdeaTags,
   updateItem as updateRemoteItem,
   type MinutaItem,
 } from "../lib/api";
@@ -88,15 +87,34 @@ function sortByRecent<T extends Pick<AnyNote, "createdAt" | "updatedAt">>(
   return [...items].sort((a, b) => getActivityTime(b) - getActivityTime(a));
 }
 
+function getRemoteFolderId(item: MinutaItem) {
+  return item.folder_id ?? item.folderId ?? null;
+}
+
+function getRemoteCreatedAt(item: MinutaItem) {
+  return new Date(item.created_at ?? item.createdAt ?? Date.now());
+}
+
+function getRemoteUpdatedAt(item: MinutaItem) {
+  return new Date(item.updated_at ?? item.updatedAt ?? Date.now());
+}
+
+function getLocalItemType(item: AnyNote) {
+  if ("isCompleted" in item) return "checklist";
+  if ("tags" in item) return "idea";
+
+  return "note";
+}
+
 function mapRemoteNoteToLocal(item: MinutaItem): Note {
   return {
     id: item.id,
     title: item.title,
     content: item.content ?? "",
-    imageUri: item.image_url ?? undefined,
-    createdAt: new Date(item.created_at),
-    updatedAt: new Date(item.updated_at),
-    folderId: item.folder_id ?? null,
+    imageUri: item.image_url ?? item.imageUrl ?? undefined,
+    createdAt: getRemoteCreatedAt(item),
+    updatedAt: getRemoteUpdatedAt(item),
+    folderId: getRemoteFolderId(item),
   };
 }
 
@@ -106,20 +124,20 @@ function mapRemoteIdeaToLocal(item: MinutaItem): IdeaNote {
     title: item.title,
     color: item.color ?? "#FFCC00",
     tags: item.tags ?? [],
-    createdAt: new Date(item.created_at),
-    updatedAt: new Date(item.updated_at),
-    folderId: item.folder_id ?? null,
+    createdAt: getRemoteCreatedAt(item),
+    updatedAt: getRemoteUpdatedAt(item),
+    folderId: getRemoteFolderId(item),
   };
 }
 
 function mapRemoteChecklistToLocal(item: MinutaItem): Task {
   return {
     id: item.id,
-    text: item.title,
-    isCompleted: item.is_completed,
-    createdAt: new Date(item.created_at),
-    updatedAt: new Date(item.updated_at),
-    folderId: item.folder_id ?? null,
+    text: item.text ?? item.content ?? item.title,
+    isCompleted: item.is_completed ?? item.isCompleted ?? false,
+    createdAt: getRemoteCreatedAt(item),
+    updatedAt: getRemoteUpdatedAt(item),
+    folderId: getRemoteFolderId(item),
   };
 }
 
@@ -187,12 +205,14 @@ export const useNotesStore = create<NotesStore>()(
       updateNote: async (id, updates) => {
         try {
           await updateRemoteItem(id, {
+            type: "note",
             title: updates.title,
             content: updates.content,
             image_url: updates.imageUri?.startsWith("http")
               ? updates.imageUri
               : undefined,
             folder_id: updates.folderId ?? null,
+            folderId: updates.folderId ?? null,
           });
 
           await get().fetchItems();
@@ -209,12 +229,13 @@ export const useNotesStore = create<NotesStore>()(
       updateIdea: async (id, updates) => {
         try {
           await updateRemoteItem(id, {
+            type: "idea",
             title: updates.title,
             color: updates.color,
+            tags: updates.tags ?? [],
             folder_id: updates.folderId ?? null,
+            folderId: updates.folderId ?? null,
           });
-
-          await updateIdeaTags(id, updates.tags ?? []);
 
           await get().fetchItems();
         } catch (error) {
@@ -230,9 +251,12 @@ export const useNotesStore = create<NotesStore>()(
       updateTask: async (id, updates) => {
         try {
           await updateRemoteItem(id, {
+            type: "checklist",
             title: updates.text,
             content: updates.text,
+            text: updates.text,
             folder_id: updates.folderId ?? null,
+            folderId: updates.folderId ?? null,
           });
 
           await get().fetchItems();
@@ -260,7 +284,14 @@ export const useNotesStore = create<NotesStore>()(
 
       deleteItem: async (id) => {
         try {
-          await deleteRemoteItem(id);
+          const state = get();
+          const type = state.tasks.some((task) => task.id === id)
+            ? "checklist"
+            : state.ideas.some((idea) => idea.id === id)
+              ? "idea"
+              : "note";
+
+          await deleteRemoteItem(id, type);
 
           set((state) => ({
             notes: state.notes.filter((note) => note.id !== id),
@@ -396,7 +427,9 @@ export const useNotesStore = create<NotesStore>()(
         try {
           const notes = get().notes;
 
-          await Promise.all(notes.map((note) => deleteRemoteItem(note.id)));
+          await Promise.all(
+            notes.map((note) => deleteRemoteItem(note.id, "note")),
+          );
 
           await get().fetchItems();
         } catch (error) {
@@ -413,7 +446,9 @@ export const useNotesStore = create<NotesStore>()(
         try {
           const ideas = get().ideas;
 
-          await Promise.all(ideas.map((idea) => deleteRemoteItem(idea.id)));
+          await Promise.all(
+            ideas.map((idea) => deleteRemoteItem(idea.id, "idea")),
+          );
 
           await get().fetchItems();
         } catch (error) {
@@ -431,7 +466,7 @@ export const useNotesStore = create<NotesStore>()(
           const archivedNotes = get().notes.filter((note) => note.isArchived);
 
           await Promise.all(
-            archivedNotes.map((note) => deleteRemoteItem(note.id)),
+            archivedNotes.map((note) => deleteRemoteItem(note.id, "note")),
           );
 
           set((state) => ({
@@ -453,7 +488,7 @@ export const useNotesStore = create<NotesStore>()(
           const archivedIdeas = get().ideas.filter((idea) => idea.isArchived);
 
           await Promise.all(
-            archivedIdeas.map((idea) => deleteRemoteItem(idea.id)),
+            archivedIdeas.map((idea) => deleteRemoteItem(idea.id, "idea")),
           );
 
           set((state) => ({
@@ -480,7 +515,13 @@ export const useNotesStore = create<NotesStore>()(
           ];
 
           await Promise.all(
-            items.map((item) => updateRemoteItem(item.id, { folder_id: null })),
+            items.map((item) =>
+              updateRemoteItem(item.id, {
+                folder_id: null,
+                folderId: null,
+                type: getLocalItemType(item),
+              }),
+            ),
           );
 
           set((currentState) => ({
@@ -511,7 +552,9 @@ export const useNotesStore = create<NotesStore>()(
             (task) => task.folderId === folderId,
           );
 
-          await Promise.all(tasks.map((task) => deleteRemoteItem(task.id)));
+          await Promise.all(
+            tasks.map((task) => deleteRemoteItem(task.id, "checklist")),
+          );
 
           set((state) => ({
             tasks: state.tasks.filter((task) => task.folderId !== folderId),
@@ -533,7 +576,9 @@ export const useNotesStore = create<NotesStore>()(
             (note) => note.folderId === folderId,
           );
 
-          await Promise.all(notes.map((note) => deleteRemoteItem(note.id)));
+          await Promise.all(
+            notes.map((note) => deleteRemoteItem(note.id, "note")),
+          );
 
           set((state) => ({
             notes: state.notes.filter((note) => note.folderId !== folderId),
@@ -555,7 +600,9 @@ export const useNotesStore = create<NotesStore>()(
             (idea) => idea.folderId === folderId,
           );
 
-          await Promise.all(ideas.map((idea) => deleteRemoteItem(idea.id)));
+          await Promise.all(
+            ideas.map((idea) => deleteRemoteItem(idea.id, "idea")),
+          );
 
           set((state) => ({
             ideas: state.ideas.filter((idea) => idea.folderId !== folderId),
@@ -584,7 +631,9 @@ export const useNotesStore = create<NotesStore>()(
           await Promise.all(
             pendingTasks.map((task) =>
               updateRemoteItem(task.id, {
+                type: "checklist",
                 is_completed: true,
+                isCompleted: true,
               }),
             ),
           );
@@ -605,7 +654,7 @@ export const useNotesStore = create<NotesStore>()(
           const completedTasks = get().tasks.filter((task) => task.isCompleted);
 
           await Promise.all(
-            completedTasks.map((task) => deleteRemoteItem(task.id)),
+            completedTasks.map((task) => deleteRemoteItem(task.id, "checklist")),
           );
 
           await get().fetchItems();
@@ -623,7 +672,9 @@ export const useNotesStore = create<NotesStore>()(
         try {
           const tasks = get().tasks;
 
-          await Promise.all(tasks.map((task) => deleteRemoteItem(task.id)));
+          await Promise.all(
+            tasks.map((task) => deleteRemoteItem(task.id, "checklist")),
+          );
 
           await get().fetchItems();
         } catch (error) {
@@ -675,7 +726,9 @@ export const useNotesStore = create<NotesStore>()(
           if (!task) return;
 
           await updateRemoteItem(id, {
+            type: "checklist",
             is_completed: !task.isCompleted,
+            isCompleted: !task.isCompleted,
           });
 
           await get().fetchItems();

@@ -20,7 +20,7 @@ import { ManageTagsButton } from "../components/ideas/ManageTagsButton";
 import { TagSuggestions } from "../components/ideas/TagSuggestions";
 import { radius, spacing, typography } from "../constants/theme";
 import { useMinutaTheme } from "../constants/useMinutaTheme";
-import { createItem, updateIdeaTags } from "../lib/api";
+import { createItem } from "../lib/api";
 import { getUniqueIdeaTags, parseTags } from "../lib/tags";
 import { useFoldersStore } from "../store/foldersStore";
 import { useNotesStore } from "../store/notesStore";
@@ -143,6 +143,7 @@ export default function NuevaNotaScreen() {
             ? result.data.imageUri
             : undefined,
           folder_id: folderId,
+          folderId,
         });
 
         await fetchItems();
@@ -164,7 +165,9 @@ export default function NuevaNotaScreen() {
           title: result.data.text,
           type: "checklist",
           content: result.data.text,
+          text: result.data.text,
           folder_id: folderId,
+          folderId,
         });
 
         await fetchItems();
@@ -185,14 +188,14 @@ export default function NuevaNotaScreen() {
         return;
       }
 
-      const idea = await createItem({
+      await createItem({
         title: result.data.title,
         type: "idea",
         color: result.data.color,
+        tags: result.data.tags ?? [],
         folder_id: folderId,
+        folderId,
       });
-
-      await updateIdeaTags(idea.id, result.data.tags ?? []);
 
       await fetchItems();
       router.back();

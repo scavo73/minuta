@@ -16,6 +16,7 @@ type CountableItems = {
 };
 
 export type FolderChipItem = Folder & {
+  counts: FolderItemCounts;
   isSystem?: boolean;
 };
 
@@ -94,33 +95,23 @@ export function buildFolderChips(
   const folderMap = new Map(
     foldersWithCounts.map((folder) => [folder.id, folder]),
   );
-  const noFolderCounts = emptyCounts();
 
   items.tasks?.forEach((task) => {
-    if (!task.folderId) {
-      noFolderCounts.tasks += 1;
-      return;
-    }
+    if (!task.folderId) return;
 
     const folder = folderMap.get(task.folderId);
     if (folder) folder.counts.tasks += 1;
   });
 
   items.notes?.forEach((note) => {
-    if (!note.folderId) {
-      noFolderCounts.notes += 1;
-      return;
-    }
+    if (!note.folderId) return;
 
     const folder = folderMap.get(note.folderId);
     if (folder) folder.counts.notes += 1;
   });
 
   items.ideas?.forEach((idea) => {
-    if (!idea.folderId) {
-      noFolderCounts.ideas += 1;
-      return;
-    }
+    if (!idea.folderId) return;
 
     const folder = folderMap.get(idea.folderId);
     if (folder) folder.counts.ideas += 1;

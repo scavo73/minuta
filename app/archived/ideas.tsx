@@ -96,6 +96,15 @@ export default function ArchivedIdeasScreen() {
   const previousArchivedCount = useRef(allArchivedIdeas.length);
 
   useEffect(() => {
+    if (
+      selectedFolderId !== ALL_FOLDERS_ID &&
+      !folders.some((folder) => folder.id === selectedFolderId)
+    ) {
+      setSelectedFolderId(ALL_FOLDERS_ID);
+    }
+  }, [folders, selectedFolderId]);
+
+  useEffect(() => {
     if (previousArchivedCount.current > 0 && allArchivedIdeas.length === 0) {
       router.back();
       return;

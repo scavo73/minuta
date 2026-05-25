@@ -148,6 +148,16 @@ export default function HomeScreen() {
 
   const shouldHideWidget = isSearchFocused || searchQuery.trim().length > 0;
 
+  useEffect(() => {
+    if (
+      selectedFolderId !== ALL_FOLDERS_ID &&
+      selectedFolderId !== NO_FOLDER_ID &&
+      !folders.some((folder) => folder.id === selectedFolderId)
+    ) {
+      setSelectedFolderId(ALL_FOLDERS_ID);
+    }
+  }, [folders, selectedFolderId]);
+
   useFocusEffect(
     useCallback(() => {
       setCreateContext({
@@ -160,6 +170,17 @@ export default function HomeScreen() {
       });
     }, [selectedFolderId, setCreateContext]),
   );
+
+  const handleSelectFolder = (folderId: FolderFilterId) => {
+    setSelectedFolderId(folderId);
+    setCreateContext({
+      folderId:
+        folderId === ALL_FOLDERS_ID || folderId === NO_FOLDER_ID
+          ? null
+          : folderId,
+      kind: "note",
+    });
+  };
 
   const animatedWidgetHeight = widgetAnim.interpolate({
     inputRange: [0, 1],
@@ -219,7 +240,7 @@ export default function HomeScreen() {
               <FolderChips
                 folders={folderChips}
                 selectedFolderId={selectedFolderId}
-                onSelectFolder={setSelectedFolderId}
+                onSelectFolder={handleSelectFolder}
               />
             </View>
           ) : null}

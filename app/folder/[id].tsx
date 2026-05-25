@@ -17,6 +17,14 @@ import type { ItemAction } from "../../components/actions/actions";
 import { radius, spacing, typography } from "../../constants/theme";
 import { useMinutaTheme } from "../../constants/useMinutaTheme";
 import { calculateFolderCounts } from "../../lib/folders";
+import {
+  deleteFolderIdeas,
+  deleteFolderNotes,
+  deleteFolderOnly,
+  deleteFolderTasks,
+  deleteFolderWithContent,
+  updateFolderName,
+} from "../../lib/foldersService";
 import { useFoldersStore } from "../../store/foldersStore";
 import { useNotesStore } from "../../store/notesStore";
 
@@ -42,18 +50,9 @@ export default function FolderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const folderId = Array.isArray(id) ? id[0] : id;
   const folders = useFoldersStore((state) => state.folders);
-  const renameFolder = useFoldersStore((state) => state.renameFolder);
-  const deleteFolder = useFoldersStore((state) => state.deleteFolder);
   const notes = useNotesStore((state) => state.notes);
   const ideas = useNotesStore((state) => state.ideas);
   const tasks = useNotesStore((state) => state.tasks);
-  const clearFolderItems = useNotesStore((state) => state.clearFolderItems);
-  const deleteFolderIdeas = useNotesStore((state) => state.deleteFolderIdeas);
-  const deleteFolderNotes = useNotesStore((state) => state.deleteFolderNotes);
-  const deleteFolderTasks = useNotesStore((state) => state.deleteFolderTasks);
-  const deleteFolderWithContent = useNotesStore(
-    (state) => state.deleteFolderWithContent,
-  );
   const folder = folders.find((item) => item.id === folderId);
   const [isEditingName, setIsEditingName] = useState(false);
   const [folderName, setFolderName] = useState(folder?.name ?? "");
@@ -82,14 +81,12 @@ export default function FolderDetailScreen() {
   const total = counts.tasks + counts.notes + counts.ideas;
 
   const removeFolderOnly = async () => {
-    await clearFolderItems(folder.id);
-    deleteFolder(folder.id);
+    await deleteFolderOnly(folder.id);
     router.back();
   };
 
   const removeFolderWithContent = async () => {
     await deleteFolderWithContent(folder.id);
-    deleteFolder(folder.id);
     router.back();
   };
 
@@ -153,7 +150,7 @@ export default function FolderDetailScreen() {
   };
 
   const saveFolderName = () => {
-    renameFolder(folder.id, folderName);
+    updateFolderName(folder.id, folderName);
     setIsEditingName(false);
   };
 
