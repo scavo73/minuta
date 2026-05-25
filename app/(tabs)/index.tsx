@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback } from "react";
 import {
   Animated,
   Easing,
@@ -17,7 +18,15 @@ import { IdeaCard } from "../../components/items/IdeaCard";
 import { NoteCard } from "../../components/items/NoteCard";
 import { spacing, typography } from "../../constants/theme";
 import { useMinutaTheme } from "../../constants/useMinutaTheme";
+import {
+  ALL_FOLDERS_ID,
+  buildFolderChips,
+  NO_FOLDER_ID,
+  type FolderFilterId,
+  matchesFolderFilter,
+} from "../../lib/folders";
 import { useFoldersStore } from "../../store/foldersStore";
+import { useCreateContextStore } from "../../store/createContextStore";
 import { useNotesStore } from "../../store/notesStore";
 import { IdeaNote, isIdeaNote, isTextNote, Note } from "../../types";
 
@@ -95,19 +104,38 @@ export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [widgetHeight, setWidgetHeight] = useState(0);
+  const [selectedFolderId, setSelectedFolderId] =
+    useState<FolderFilterId>(ALL_FOLDERS_ID);
 
   const widgetAnim = useRef(new Animated.Value(1)).current;
 
   const folders = useFoldersStore((state) => state.folders);
+  const setCreateContext = useCreateContextStore(
+    (state) => state.setCreateContext,
+  );
   const notes = useNotesStore((state) => state.notes);
   const ideas = useNotesStore((state) => state.ideas);
   const tasks = useNotesStore((state) => state.tasks);
   const toggleTask = useNotesStore((state) => state.toggleTask);
   const fetchItems = useNotesStore((state) => state.fetchItems);
 
+  const activeNotes = notes.filter((note) => !note.isArchived);
+  const activeIdeas = ideas.filter((idea) => !idea.isArchived);
+  const folderChips = buildFolderChips(folders, {
+    tasks,
+    notes: activeNotes,
+    ideas: activeIdeas,
+  });
+  const filteredTasks = tasks.filter((task) =>
+    matchesFolderFilter(task, selectedFolderId),
+  );
   const allItems = [
-    ...notes.filter((note) => !note.isArchived),
-    ...ideas.filter((idea) => !idea.isArchived),
+    ...activeNotes.filter((note) =>
+      matchesFolderFilter(note, selectedFolderId),
+    ),
+    ...activeIdeas.filter((idea) =>
+      matchesFolderFilter(idea, selectedFolderId),
+    ),
   ].sort((a, b) => getActivityTime(b) - getActivityTime(a));
 
   const normalizedQuery = normalizeSearch(searchQuery);
@@ -119,6 +147,19 @@ export default function HomeScreen() {
   const { left, right } = splitIntoMasonryColumns(items);
 
   const shouldHideWidget = isSearchFocused || searchQuery.trim().length > 0;
+
+  useFocusEffect(
+    useCallback(() => {
+      setCreateContext({
+        folderId:
+          selectedFolderId === ALL_FOLDERS_ID ||
+          selectedFolderId === NO_FOLDER_ID
+            ? null
+            : selectedFolderId,
+        kind: "note",
+      });
+    }, [selectedFolderId, setCreateContext]),
+  );
 
   const animatedWidgetHeight = widgetAnim.interpolate({
     inputRange: [0, 1],
@@ -173,9 +214,13 @@ export default function HomeScreen() {
             ]}
             value={searchQuery}
           />
-          {folders.length > 0 ? (
+          {folderChips.length > 1 ? (
             <View style={styles.folderChipsWrapper}>
-              <FolderChips folders={folders} />
+              <FolderChips
+                folders={folderChips}
+                selectedFolderId={selectedFolderId}
+                onSelectFolder={setSelectedFolderId}
+              />
             </View>
           ) : null}
 
@@ -204,7 +249,10 @@ export default function HomeScreen() {
                 }
               }}
             >
-              <HomeTasksWidget onToggleTask={toggleTask} tasks={tasks} />
+              <HomeTasksWidget
+                onToggleTask={toggleTask}
+                tasks={filteredTasks}
+              />
             </View>
           </Animated.View>
         </View>

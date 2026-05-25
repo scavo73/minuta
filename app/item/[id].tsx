@@ -208,12 +208,6 @@ export default function ItemDetailScreen() {
 
         {isIdeaNote(item) ? (
           <>
-            <View
-              style={[
-                styles.colorBlock,
-                { backgroundColor: item.color || theme.ideaCard },
-              ]}
-            />
             <Text style={[styles.title, { color: theme.text }]}>
               {item.title}
             </Text>
@@ -298,10 +292,6 @@ const styles = StyleSheet.create({
     fontSize: typography.body,
     fontWeight: "700",
     textAlign: "center",
-  },
-  colorBlock: {
-    borderRadius: radius.lg,
-    height: 120,
   },
   tags: {
     flexDirection: "row",

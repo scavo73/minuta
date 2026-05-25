@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import { useState } from "react";
 import {
   KeyboardAvoidingView,
@@ -98,8 +99,12 @@ export function FoldersModal({
             {folders.length > 0 ? (
               <View style={styles.folderList}>
                 {folders.map((folder) => (
-                  <View
+                  <Pressable
                     key={folder.id}
+                    onPress={() => {
+                      onClose();
+                      router.push(`/folder/${folder.id}`);
+                    }}
                     style={[
                       styles.folderRow,
                       { backgroundColor: theme.surface },
@@ -123,7 +128,7 @@ export function FoldersModal({
                         folder.counts.notes +
                         folder.counts.ideas}
                     </Text>
-                  </View>
+                  </Pressable>
                 ))}
               </View>
             ) : (

@@ -1,6 +1,6 @@
 import { FlashList } from "@shopify/flash-list";
-import { router } from "expo-router";
-import { useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -10,13 +10,34 @@ import { SwipeableItemCard } from "../../components/actions/SwipeableItemCard";
 import type { ItemAction } from "../../components/actions/actions";
 import { FolderButton } from "../../components/folders/FolderButton";
 import { FolderChips } from "../../components/folders/FolderChips";
+import { FolderSectionHeader } from "../../components/folders/FolderSectionHeader";
 import { FoldersModal } from "../../components/folders/FoldersModal";
 import { ArchivedRow } from "../../components/items/ArchivedRow";
 import { NoteCard } from "../../components/items/NoteCard";
 import { spacing, typography } from "../../constants/theme";
 import { useMinutaTheme } from "../../constants/useMinutaTheme";
+import {
+  ALL_FOLDERS_ID,
+  buildFolderChips,
+  NO_FOLDER_ID,
+  type FolderFilterId,
+  groupItemsByFolder,
+  matchesFolderFilter,
+} from "../../lib/folders";
 import { useFoldersStore } from "../../store/foldersStore";
+import { useCreateContextStore } from "../../store/createContextStore";
 import { useNotesStore } from "../../store/notesStore";
+import type { Note } from "../../types";
+
+type NoteListItem =
+  | {
+      id: string;
+      type: "section";
+      count: number;
+      title: string;
+      variant?: "folder" | "unfiled";
+    }
+  | { id: string; type: "note"; note: Note };
 
 function normalizeSearch(value: string) {
   return value.trim().toLowerCase();
@@ -27,17 +48,29 @@ export default function NotasScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isRowSwiping, setIsRowSwiping] = useState(false);
   const [isFoldersModalOpen, setIsFoldersModalOpen] = useState(false);
+  const [selectedFolderId, setSelectedFolderId] =
+    useState<FolderFilterId>(ALL_FOLDERS_ID);
   const folders = useFoldersStore((state) => state.folders);
   const addFolder = useFoldersStore((state) => state.addFolder);
+  const setCreateContext = useCreateContextStore(
+    (state) => state.setCreateContext,
+  );
   const notes = useNotesStore((state) => state.notes);
   const archiveNote = useNotesStore((state) => state.archiveNote);
   const archiveAllNotes = useNotesStore((state) => state.archiveAllNotes);
   const deleteAllNotes = useNotesStore((state) => state.deleteAllNotes);
   const deleteNote = useNotesStore((state) => state.deleteNote);
+  const tasks = useNotesStore((state) => state.tasks);
+  const ideas = useNotesStore((state) => state.ideas);
   const normalizedQuery = normalizeSearch(searchQuery);
   const visibleNotes = notes.filter((note) => !note.isArchived);
   const archivedNotes = notes.filter((note) => note.isArchived);
-  const filteredNotes = visibleNotes.filter((note) => {
+  const folderChips = buildFolderChips(folders, {
+    tasks,
+    notes: visibleNotes,
+    ideas: ideas.filter((idea) => !idea.isArchived),
+  });
+  const searchedNotes = visibleNotes.filter((note) => {
     if (!normalizedQuery) return true;
 
     return (
@@ -45,6 +78,65 @@ export default function NotasScreen() {
       note.content.toLowerCase().includes(normalizedQuery)
     );
   });
+  const filteredNotes =
+    selectedFolderId === ALL_FOLDERS_ID
+      ? searchedNotes
+      : searchedNotes.filter((note) =>
+          matchesFolderFilter(note, selectedFolderId),
+        );
+  const groupedNotes = groupItemsByFolder(searchedNotes, folders);
+  const noteListData: NoteListItem[] =
+    selectedFolderId === ALL_FOLDERS_ID
+      ? [
+          ...(groupedNotes.unfiledItems.length > 0
+            ? [
+                {
+                  id: "section-unfiled",
+                  type: "section" as const,
+                  title: "Notas sin carpeta",
+                  count: groupedNotes.unfiledItems.length,
+                  variant: "unfiled" as const,
+                },
+                ...groupedNotes.unfiledItems.map((note) => ({
+                  id: note.id,
+                  type: "note" as const,
+                  note,
+                })),
+              ]
+            : []),
+          ...groupedNotes.folderGroups.flatMap((group) => [
+            {
+              id: `section-${group.folder.id}`,
+              type: "section" as const,
+              title: group.folder.name,
+              count: group.items.length,
+              variant: "folder" as const,
+            },
+            ...group.items.map((note) => ({
+              id: note.id,
+              type: "note" as const,
+              note,
+            })),
+          ]),
+        ]
+      : filteredNotes.map((note) => ({
+          id: note.id,
+          type: "note",
+          note,
+        }));
+
+  useFocusEffect(
+    useCallback(() => {
+      setCreateContext({
+        folderId:
+          selectedFolderId === ALL_FOLDERS_ID ||
+          selectedFolderId === NO_FOLDER_ID
+            ? null
+            : selectedFolderId,
+        kind: "note",
+      });
+    }, [selectedFolderId, setCreateContext]),
+  );
 
   const handleSectionAction = (action: ItemAction) => {
     if (action === "archive") {
@@ -75,7 +167,7 @@ export default function NotasScreen() {
     >
       <View style={styles.listWrapper}>
         <FlashList
-          data={filteredNotes}
+          data={noteListData}
           estimatedItemSize={140}
           keyExtractor={(item) => item.id}
           maintainVisibleContentPosition={{ disabled: true }}
@@ -111,7 +203,11 @@ export default function NotasScreen() {
                 ]}
                 value={searchQuery}
               />
-              <FolderChips folders={folders} />
+              <FolderChips
+                folders={folderChips}
+                selectedFolderId={selectedFolderId}
+                onSelectFolder={setSelectedFolderId}
+              />
               {archivedNotes.length > 0 ? (
                 <ArchivedRow onPress={() => router.push("/archived/notas")} />
               ) : null}
@@ -129,19 +225,27 @@ export default function NotasScreen() {
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           contentContainerStyle={styles.content}
           scrollEnabled={!isRowSwiping}
-          renderItem={({ item }) => (
-            <SwipeableItemCard
-              onArchive={() => archiveNote(item.id)}
-              onDelete={() => confirmDeleteNote(item.id)}
-              onSwipeEnd={() => setIsRowSwiping(false)}
-              onSwipeStart={() => setIsRowSwiping(true)}
-            >
-              <NoteCard
-                note={item}
-                onPress={() => router.push(`/item/${item.id}`)}
+          renderItem={({ item }) =>
+            item.type === "section" ? (
+              <FolderSectionHeader
+                count={item.count}
+                title={item.title}
+                variant={item.variant}
               />
-            </SwipeableItemCard>
-          )}
+            ) : (
+              <SwipeableItemCard
+                onArchive={() => archiveNote(item.note.id)}
+                onDelete={() => confirmDeleteNote(item.note.id)}
+                onSwipeEnd={() => setIsRowSwiping(false)}
+                onSwipeStart={() => setIsRowSwiping(true)}
+              >
+                <NoteCard
+                  note={item.note}
+                  onPress={() => router.push(`/item/${item.note.id}`)}
+                />
+              </SwipeableItemCard>
+            )
+          }
         />
       </View>
       <FoldersModal

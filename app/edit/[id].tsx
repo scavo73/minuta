@@ -12,6 +12,7 @@ import { EditItemForm } from "../../components/edit/EditItemForm";
 import { spacing, typography } from "../../constants/theme";
 import { useMinutaTheme } from "../../constants/useMinutaTheme";
 import { getUniqueIdeaTags } from "../../lib/tags";
+import { useFoldersStore } from "../../store/foldersStore";
 import { useNotesStore } from "../../store/notesStore";
 import { isIdeaNote, isTask, isTextNote } from "../../types";
 
@@ -20,6 +21,7 @@ export default function EditItemScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const itemId = Array.isArray(id) ? id[0] : id;
   const getItemById = useNotesStore((state) => state.getItemById);
+  const folders = useFoldersStore((state) => state.folders);
   const updateIdea = useNotesStore((state) => state.updateIdea);
   const updateNote = useNotesStore((state) => state.updateNote);
   const ideas = useNotesStore((state) => state.ideas);
@@ -53,6 +55,7 @@ export default function EditItemScreen() {
       >
         <EditItemForm
           availableTags={availableTags}
+          folders={folders}
           item={item}
           kind={isTextNote(item) ? "note" : "idea"}
           onCancel={() => router.back()}
@@ -62,6 +65,7 @@ export default function EditItemScreen() {
                 title: values.title,
                 content: values.content,
                 imageUri: values.imageUri,
+                folderId: values.folderId,
               });
               router.back();
               return;
@@ -72,6 +76,7 @@ export default function EditItemScreen() {
                 title: values.title,
                 tags: values.tags,
                 color: values.color,
+                folderId: values.folderId,
               });
               router.back();
             }

@@ -1,11 +1,14 @@
-import { Ionicons } from '@expo/vector-icons';
-import { Tabs, router } from 'expo-router';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { Ionicons } from "@expo/vector-icons";
+import { Tabs, router } from "expo-router";
+import { Pressable, StyleSheet, Text } from "react-native";
 
-import { useMinutaTheme } from '../../constants/useMinutaTheme';
+import { useMinutaTheme } from "../../constants/useMinutaTheme";
+import { useCreateContextStore } from "../../store/createContextStore";
 
 export default function TabsLayout() {
   const { theme } = useMinutaTheme();
+  const createKind = useCreateContextStore((state) => state.kind);
+  const createFolderId = useCreateContextStore((state) => state.folderId);
 
   return (
     <Tabs
@@ -18,14 +21,14 @@ export default function TabsLayout() {
         tabBarLabelStyle: styles.tabLabel,
 
         tabBarStyle: {
-          position: 'absolute',
+          position: "absolute",
           left: 0,
           right: 0,
           bottom: 0,
 
           backgroundColor: theme.surface,
           borderTopWidth: StyleSheet.hairlineWidth,
-          borderTopColor: 'rgba(0,0,0,0.12)',
+          borderTopColor: "rgba(0,0,0,0.12)",
 
           paddingTop: 8,
           paddingBottom: 8,
@@ -45,10 +48,10 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
+          title: "Home",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name={focused ? 'home' : 'home-outline'}
+              name={focused ? "home" : "home-outline"}
               size={22}
               color={color}
             />
@@ -59,10 +62,10 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="notas"
         options={{
-          title: 'Notas',
+          title: "Notas",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name={focused ? 'document-text' : 'document-text-outline'}
+              name={focused ? "document-text" : "document-text-outline"}
               size={22}
               color={color}
             />
@@ -73,13 +76,21 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="create"
         options={{
-          title: '',
+          title: "",
           tabBarLabel: () => null,
           tabBarButton: () => (
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Crear nueva minuta"
-              onPress={() => router.push('/new-item')}
+              onPress={() =>
+                router.push({
+                  pathname: "/new-item",
+                  params: {
+                    folderId: createFolderId ?? "",
+                    kind: createKind,
+                  },
+                })
+              }
               style={styles.createTabButtonWrapper}
             >
               <Text
@@ -98,10 +109,10 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="checklists"
         options={{
-          title: 'Tareas',
+          title: "Tareas",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name={focused ? 'checkbox' : 'checkbox-outline'}
+              name={focused ? "checkbox" : "checkbox-outline"}
               size={22}
               color={color}
             />
@@ -112,10 +123,10 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="ideas"
         options={{
-          title: 'Ideas',
+          title: "Ideas",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name={focused ? 'bulb' : 'bulb-outline'}
+              name={focused ? "bulb" : "bulb-outline"}
               size={22}
               color={color}
             />
@@ -129,12 +140,12 @@ export default function TabsLayout() {
 const styles = StyleSheet.create({
   tabLabel: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 
   createTabButtonWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     top: -14,
   },
 
@@ -142,11 +153,11 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 34,
-    fontWeight: '700',
+    fontWeight: "700",
     lineHeight: 52,
-    overflow: 'hidden',
-    textAlign: 'center',
+    overflow: "hidden",
+    textAlign: "center",
   },
 });

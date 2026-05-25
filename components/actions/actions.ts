@@ -8,7 +8,13 @@ export type ItemAction =
   | "deleteCompleted"
   | "toggleDone"
   | "convertToTask"
-  | "extractTasks";
+  | "extractTasks"
+  | "editFolder"
+  | "deleteFolder"
+  | "deleteFolderContent"
+  | "deleteFolderTasks"
+  | "deleteFolderNotes"
+  | "deleteFolderIdeas";
 
 export interface ActionMenuItem {
   action: ItemAction;

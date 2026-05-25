@@ -9,14 +9,38 @@ import { showDeleteConfirm } from "../../components/actions/DeleteConfirmDialog"
 import { SectionActionsMenu } from "../../components/actions/SectionActionsMenu";
 import { SwipeableItemCard } from "../../components/actions/SwipeableItemCard";
 import type { ItemAction } from "../../components/actions/actions";
+import { FolderChips } from "../../components/folders/FolderChips";
+import { FolderSectionHeader } from "../../components/folders/FolderSectionHeader";
 import { NoteCard } from "../../components/items/NoteCard";
 import { radius, spacing, typography } from "../../constants/theme";
 import { useMinutaTheme } from "../../constants/useMinutaTheme";
+import {
+  ALL_FOLDERS_ID,
+  buildFolderChips,
+  type FolderFilterId,
+  groupItemsByFolder,
+  matchesFolderFilter,
+} from "../../lib/folders";
+import { useFoldersStore } from "../../store/foldersStore";
 import { useNotesStore } from "../../store/notesStore";
+import type { Note } from "../../types";
+
+type ArchivedNoteListItem =
+  | {
+      id: string;
+      type: "section";
+      count: number;
+      title: string;
+      variant?: "folder" | "unfiled";
+    }
+  | { id: string; type: "note"; note: Note };
 
 export default function ArchivedNotesScreen() {
   const { theme } = useMinutaTheme();
   const [isRowSwiping, setIsRowSwiping] = useState(false);
+  const [selectedFolderId, setSelectedFolderId] =
+    useState<FolderFilterId>(ALL_FOLDERS_ID);
+  const folders = useFoldersStore((state) => state.folders);
   const notes = useNotesStore((state) => state.notes);
   const deleteAllArchivedNotes = useNotesStore(
     (state) => state.deleteAllArchivedNotes,
@@ -24,21 +48,70 @@ export default function ArchivedNotesScreen() {
   const deleteNote = useNotesStore((state) => state.deleteNote);
   const unarchiveAllNotes = useNotesStore((state) => state.unarchiveAllNotes);
   const unarchiveNote = useNotesStore((state) => state.unarchiveNote);
-  const archivedNotes = notes.filter((note) => note.isArchived);
-  const previousArchivedCount = useRef(archivedNotes.length);
+  const allArchivedNotes = notes.filter((note) => note.isArchived);
+  const folderChips = buildFolderChips(folders, { notes: allArchivedNotes });
+  const archivedNotes = allArchivedNotes.filter((note) =>
+    matchesFolderFilter(note, selectedFolderId),
+  );
+  const groupedArchivedNotes = groupItemsByFolder(allArchivedNotes, folders);
+  const archivedNoteListData: ArchivedNoteListItem[] =
+    selectedFolderId === ALL_FOLDERS_ID
+      ? [
+          ...(groupedArchivedNotes.unfiledItems.length > 0
+            ? [
+                {
+                  id: "section-unfiled",
+                  type: "section" as const,
+                  title: "Notas sin carpeta",
+                  count: groupedArchivedNotes.unfiledItems.length,
+                  variant: "unfiled" as const,
+                },
+                ...groupedArchivedNotes.unfiledItems.map((note) => ({
+                  id: note.id,
+                  type: "note" as const,
+                  note,
+                })),
+              ]
+            : []),
+          ...groupedArchivedNotes.folderGroups.flatMap((group) => [
+            {
+              id: `section-${group.folder.id}`,
+              type: "section" as const,
+              title: group.folder.name,
+              count: group.items.length,
+              variant: "folder" as const,
+            },
+            ...group.items.map((note) => ({
+              id: note.id,
+              type: "note" as const,
+              note,
+            })),
+          ]),
+        ]
+      : archivedNotes.map((note) => ({
+          id: note.id,
+          type: "note",
+          note,
+        }));
+  const previousArchivedCount = useRef(allArchivedNotes.length);
 
   useEffect(() => {
-    if (previousArchivedCount.current > 0 && archivedNotes.length === 0) {
+    if (previousArchivedCount.current > 0 && allArchivedNotes.length === 0) {
       router.back();
       return;
     }
 
-    previousArchivedCount.current = archivedNotes.length;
-  }, [archivedNotes.length]);
+    previousArchivedCount.current = allArchivedNotes.length;
+  }, [allArchivedNotes.length]);
 
   const handleSectionAction = (action: ItemAction) => {
     if (action === "unarchive") {
-      unarchiveAllNotes();
+      if (selectedFolderId === ALL_FOLDERS_ID) {
+        unarchiveAllNotes();
+        return;
+      }
+
+      archivedNotes.forEach((note) => unarchiveNote(note.id));
       return;
     }
 
@@ -46,7 +119,16 @@ export default function ArchivedNotesScreen() {
       showDeleteConfirm({
         title: "Borrar notas archivadas",
         message: "¿Seguro que quieres borrar todas las notas archivadas?",
-        onConfirm: deleteAllArchivedNotes,
+        onConfirm: () => {
+          if (selectedFolderId === ALL_FOLDERS_ID) {
+            deleteAllArchivedNotes();
+            return;
+          }
+
+          archivedNotes.forEach((note) => {
+            deleteNote(note.id);
+          });
+        },
       });
     }
   };
@@ -88,9 +170,14 @@ export default function ArchivedNotesScreen() {
             <Text style={[styles.title, { color: theme.text }]}>
               Notas archivadas
             </Text>
+            <FolderChips
+              folders={folderChips}
+              selectedFolderId={selectedFolderId}
+              onSelectFolder={setSelectedFolderId}
+            />
           </View>
         }
-        data={archivedNotes}
+        data={archivedNoteListData}
         estimatedItemSize={140}
         keyExtractor={(item) => item.id}
         ListEmptyComponent={
@@ -101,21 +188,29 @@ export default function ArchivedNotesScreen() {
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         contentContainerStyle={styles.content}
         scrollEnabled={!isRowSwiping}
-        renderItem={({ item }) => (
-          <SwipeableItemCard
-            archiveIcon="arrow-undo-outline"
-            archiveLabel="Desarchivar"
-            onArchive={() => unarchiveNote(item.id)}
-            onDelete={() => confirmDeleteNote(item.id)}
-            onSwipeEnd={() => setIsRowSwiping(false)}
-            onSwipeStart={() => setIsRowSwiping(true)}
-          >
-            <NoteCard
-              note={item}
-              onPress={() => router.push(`/item/${item.id}`)}
+        renderItem={({ item }) =>
+          item.type === "section" ? (
+            <FolderSectionHeader
+              count={item.count}
+              title={item.title}
+              variant={item.variant}
             />
-          </SwipeableItemCard>
-        )}
+          ) : (
+            <SwipeableItemCard
+              archiveIcon="arrow-undo-outline"
+              archiveLabel="Desarchivar"
+              onArchive={() => unarchiveNote(item.note.id)}
+              onDelete={() => confirmDeleteNote(item.note.id)}
+              onSwipeEnd={() => setIsRowSwiping(false)}
+              onSwipeStart={() => setIsRowSwiping(true)}
+            >
+              <NoteCard
+                note={item.note}
+                onPress={() => router.push(`/item/${item.note.id}`)}
+              />
+            </SwipeableItemCard>
+          )
+        }
       />
     </SafeAreaView>
   );

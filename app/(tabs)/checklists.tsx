@@ -1,6 +1,7 @@
 import { FlashList } from "@shopify/flash-list";
 import { Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
 import {
   Keyboard,
   Pressable,
@@ -16,13 +17,34 @@ import { SectionActionsMenu } from "../../components/actions/SectionActionsMenu"
 import type { ItemAction } from "../../components/actions/actions";
 import { FolderButton } from "../../components/folders/FolderButton";
 import { FolderChips } from "../../components/folders/FolderChips";
+import { FolderSelector } from "../../components/folders/FolderSelector";
+import { FolderSectionHeader } from "../../components/folders/FolderSectionHeader";
 import { FoldersModal } from "../../components/folders/FoldersModal";
 import { TaskRow } from "../../components/items/TaskRow";
 import { spacing, typography } from "../../constants/theme";
 import { useMinutaTheme } from "../../constants/useMinutaTheme";
+import {
+  ALL_FOLDERS_ID,
+  buildFolderChips,
+  NO_FOLDER_ID,
+  type FolderFilterId,
+  groupItemsByFolder,
+  matchesFolderFilter,
+} from "../../lib/folders";
 import { useFoldersStore } from "../../store/foldersStore";
+import { useCreateContextStore } from "../../store/createContextStore";
 import { useNotesStore } from "../../store/notesStore";
 import type { Task } from "../../types";
+
+type TaskListItem =
+  | {
+      id: string;
+      type: "section";
+      count: number;
+      title: string;
+      variant?: "folder" | "unfiled";
+    }
+  | { id: string; type: "task"; task: Task };
 
 function normalizeSearch(value: string) {
   return value.trim().toLowerCase();
@@ -34,9 +56,17 @@ export default function ChecklistsScreen() {
   const [isRowSwiping, setIsRowSwiping] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingTaskText, setEditingTaskText] = useState("");
+  const [editingTaskFolderId, setEditingTaskFolderId] = useState<string | null>(
+    null,
+  );
   const [isFoldersModalOpen, setIsFoldersModalOpen] = useState(false);
+  const [selectedFolderId, setSelectedFolderId] =
+    useState<FolderFilterId>(ALL_FOLDERS_ID);
   const folders = useFoldersStore((state) => state.folders);
   const addFolder = useFoldersStore((state) => state.addFolder);
+  const setCreateContext = useCreateContextStore(
+    (state) => state.setCreateContext,
+  );
   const tasks = useNotesStore((state) => state.tasks);
   const deleteAllTasks = useNotesStore((state) => state.deleteAllTasks);
   const deleteCompletedTasks = useNotesStore(
@@ -46,21 +76,89 @@ export default function ChecklistsScreen() {
   const markAllTasksDone = useNotesStore((state) => state.markAllTasksDone);
   const toggleTask = useNotesStore((state) => state.toggleTask);
   const updateTask = useNotesStore((state) => state.updateTask);
+  const notes = useNotesStore((state) => state.notes);
+  const ideas = useNotesStore((state) => state.ideas);
   const normalizedQuery = normalizeSearch(searchQuery);
-  const filteredTasks = tasks.filter((task) => {
+  const folderChips = buildFolderChips(folders, {
+    tasks,
+    notes: notes.filter((note) => !note.isArchived),
+    ideas: ideas.filter((idea) => !idea.isArchived),
+  });
+  const searchedTasks = tasks.filter((task) => {
     if (!normalizedQuery) return true;
 
     return task.text.toLowerCase().includes(normalizedQuery);
   });
+  const filteredTasks =
+    selectedFolderId === ALL_FOLDERS_ID
+      ? searchedTasks
+      : searchedTasks.filter((task) =>
+          matchesFolderFilter(task, selectedFolderId),
+        );
+  const groupedTasks = groupItemsByFolder(searchedTasks, folders);
+  const taskListData: TaskListItem[] =
+    selectedFolderId === ALL_FOLDERS_ID
+      ? [
+          ...(groupedTasks.unfiledItems.length > 0
+            ? [
+                {
+                  id: "section-unfiled",
+                  type: "section" as const,
+                  title: "Tareas sin carpeta",
+                  count: groupedTasks.unfiledItems.length,
+                  variant: "unfiled" as const,
+                },
+                ...groupedTasks.unfiledItems.map((task) => ({
+                  id: task.id,
+                  type: "task" as const,
+                  task,
+                })),
+              ]
+            : []),
+          ...groupedTasks.folderGroups.flatMap((group) => [
+            {
+              id: `section-${group.folder.id}`,
+              type: "section" as const,
+              title: group.folder.name,
+              count: group.items.length,
+              variant: "folder" as const,
+            },
+            ...group.items.map((task) => ({
+              id: task.id,
+              type: "task" as const,
+              task,
+            })),
+          ]),
+        ]
+      : filteredTasks.map((task) => ({
+          id: task.id,
+          type: "task",
+          task,
+        }));
+
+  useFocusEffect(
+    useCallback(() => {
+      setCreateContext({
+        folderId:
+          selectedFolderId === ALL_FOLDERS_ID ||
+          selectedFolderId === NO_FOLDER_ID
+            ? null
+            : selectedFolderId,
+        kind: "task",
+      });
+    }, [selectedFolderId, setCreateContext]),
+  );
 
   const startEditingTask = (task: Task) => {
     setEditingTaskId(task.id);
     setEditingTaskText(task.text);
+    setEditingTaskFolderId(task.folderId ?? null);
   };
 
   const clearEditingTask = () => {
     setEditingTaskId(null);
     setEditingTaskText("");
+    setEditingTaskFolderId(null);
   };
 
   const saveEditingTask = () => {
@@ -68,7 +166,10 @@ export default function ChecklistsScreen() {
       const nextText = editingTaskText.trim();
 
       if (nextText) {
-        updateTask(editingTaskId, { text: nextText });
+        updateTask(editingTaskId, {
+          text: nextText,
+          folderId: editingTaskFolderId,
+        });
       }
     }
 
@@ -120,7 +221,7 @@ export default function ChecklistsScreen() {
     >
       <View style={styles.listWrapper}>
         <FlashList
-          data={filteredTasks}
+          data={taskListData}
           estimatedItemSize={160}
           keyboardShouldPersistTaps="handled"
           keyExtractor={(item) => item.id}
@@ -180,7 +281,18 @@ export default function ChecklistsScreen() {
                 ]}
                 value={searchQuery}
               />
-              <FolderChips folders={folders} />
+              {editingTaskId ? (
+                <FolderSelector
+                  folders={folders}
+                  selectedFolderId={editingTaskFolderId}
+                  onChange={setEditingTaskFolderId}
+                />
+              ) : null}
+              <FolderChips
+                folders={folderChips}
+                selectedFolderId={selectedFolderId}
+                onSelectFolder={setSelectedFolderId}
+              />
             </View>
           }
           ListEmptyComponent={
@@ -193,19 +305,27 @@ export default function ChecklistsScreen() {
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           contentContainerStyle={styles.content}
           scrollEnabled={!isRowSwiping}
-          renderItem={({ item }) => (
-            <TaskRow
-              editText={editingTaskText}
-              isEditing={editingTaskId === item.id}
-              onChangeEditText={setEditingTaskText}
-              onDelete={handleDeleteTask}
-              onPressText={startEditingTask}
-              onSwipeEnd={() => setIsRowSwiping(false)}
-              onSwipeStart={() => setIsRowSwiping(true)}
-              onToggle={toggleTask}
-              task={item}
-            />
-          )}
+          renderItem={({ item }) =>
+            item.type === "section" ? (
+              <FolderSectionHeader
+                count={item.count}
+                title={item.title}
+                variant={item.variant}
+              />
+            ) : (
+              <TaskRow
+                editText={editingTaskText}
+                isEditing={editingTaskId === item.task.id}
+                onChangeEditText={setEditingTaskText}
+                onDelete={handleDeleteTask}
+                onPressText={startEditingTask}
+                onSwipeEnd={() => setIsRowSwiping(false)}
+                onSwipeStart={() => setIsRowSwiping(true)}
+                onToggle={toggleTask}
+                task={item.task}
+              />
+            )
+          }
         />
       </View>
       <FoldersModal

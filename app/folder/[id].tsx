@@ -1,0 +1,397 @@
+import { Ionicons } from "@expo/vector-icons";
+import { router, useLocalSearchParams } from "expo-router";
+import { useState } from "react";
+import {
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
+import { showDeleteConfirm } from "../../components/actions/DeleteConfirmDialog";
+import { SectionActionsMenu } from "../../components/actions/SectionActionsMenu";
+import type { ItemAction } from "../../components/actions/actions";
+import { radius, spacing, typography } from "../../constants/theme";
+import { useMinutaTheme } from "../../constants/useMinutaTheme";
+import { calculateFolderCounts } from "../../lib/folders";
+import { useFoldersStore } from "../../store/foldersStore";
+import { useNotesStore } from "../../store/notesStore";
+
+type FolderAction =
+  | "editFolder"
+  | "deleteFolder"
+  | "deleteFolderContent"
+  | "deleteFolderTasks"
+  | "deleteFolderNotes"
+  | "deleteFolderIdeas";
+
+const folderActionItems = [
+  { action: "editFolder", label: "Editar nombre" },
+  { action: "deleteFolder", label: "Borrar carpeta", destructive: true },
+  { action: "deleteFolderTasks", label: "Borrar tareas", destructive: true },
+  { action: "deleteFolderNotes", label: "Borrar notas", destructive: true },
+  { action: "deleteFolderIdeas", label: "Borrar ideas", destructive: true },
+  { action: "deleteFolderContent", label: "Borrar todo", destructive: true },
+] as const;
+
+export default function FolderDetailScreen() {
+  const { theme } = useMinutaTheme();
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const folderId = Array.isArray(id) ? id[0] : id;
+  const folders = useFoldersStore((state) => state.folders);
+  const renameFolder = useFoldersStore((state) => state.renameFolder);
+  const deleteFolder = useFoldersStore((state) => state.deleteFolder);
+  const notes = useNotesStore((state) => state.notes);
+  const ideas = useNotesStore((state) => state.ideas);
+  const tasks = useNotesStore((state) => state.tasks);
+  const clearFolderItems = useNotesStore((state) => state.clearFolderItems);
+  const deleteFolderIdeas = useNotesStore((state) => state.deleteFolderIdeas);
+  const deleteFolderNotes = useNotesStore((state) => state.deleteFolderNotes);
+  const deleteFolderTasks = useNotesStore((state) => state.deleteFolderTasks);
+  const deleteFolderWithContent = useNotesStore(
+    (state) => state.deleteFolderWithContent,
+  );
+  const folder = folders.find((item) => item.id === folderId);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [folderName, setFolderName] = useState(folder?.name ?? "");
+
+  if (!folder || !folderId) {
+    return (
+      <SafeAreaView
+        style={[styles.screen, { backgroundColor: theme.background }]}
+      >
+        <View style={styles.emptyContent}>
+          <Text style={[styles.title, { color: theme.text }]}>
+            Carpeta no encontrada
+          </Text>
+          <Pressable
+            onPress={() => router.back()}
+            style={[styles.iconButton, { backgroundColor: theme.surface }]}
+          >
+            <Ionicons color={theme.text} name="arrow-back" size={22} />
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const counts = calculateFolderCounts(folder.id, { ideas, notes, tasks });
+  const total = counts.tasks + counts.notes + counts.ideas;
+
+  const removeFolderOnly = async () => {
+    await clearFolderItems(folder.id);
+    deleteFolder(folder.id);
+    router.back();
+  };
+
+  const removeFolderWithContent = async () => {
+    await deleteFolderWithContent(folder.id);
+    deleteFolder(folder.id);
+    router.back();
+  };
+
+  const handleAction = (action: ItemAction) => {
+    const folderAction = action as FolderAction;
+
+    if (folderAction === "editFolder") {
+      setFolderName(folder.name);
+      setIsEditingName(true);
+      return;
+    }
+
+    if (folderAction === "deleteFolder") {
+      showDeleteConfirm({
+        title: "Borrar carpeta",
+        message:
+          "Eliminar esta carpeta no borrará sus tareas, notas ni ideas. Los items pasarán a Sin carpeta.",
+        onConfirm: removeFolderOnly,
+      });
+      return;
+    }
+
+    if (folderAction === "deleteFolderContent") {
+      showDeleteConfirm({
+        title: "Borrar todo",
+        message:
+          "Esto eliminará la carpeta y todas las tareas, notas e ideas dentro. Esta acción no se puede deshacer.",
+        onConfirm: removeFolderWithContent,
+      });
+      return;
+    }
+
+    if (folderAction === "deleteFolderTasks") {
+      showDeleteConfirm({
+        title: "Borrar tareas",
+        message:
+          "Esto eliminará todas las tareas de esta carpeta. Esta acción no se puede deshacer.",
+        onConfirm: () => deleteFolderTasks(folder.id),
+      });
+      return;
+    }
+
+    if (folderAction === "deleteFolderNotes") {
+      showDeleteConfirm({
+        title: "Borrar notas",
+        message:
+          "Esto eliminará todas las notas de esta carpeta. Esta acción no se puede deshacer.",
+        onConfirm: () => deleteFolderNotes(folder.id),
+      });
+      return;
+    }
+
+    if (folderAction === "deleteFolderIdeas") {
+      showDeleteConfirm({
+        title: "Borrar ideas",
+        message:
+          "Esto eliminará todas las ideas de esta carpeta. Esta acción no se puede deshacer.",
+        onConfirm: () => deleteFolderIdeas(folder.id),
+      });
+    }
+  };
+
+  const saveFolderName = () => {
+    renameFolder(folder.id, folderName);
+    setIsEditingName(false);
+  };
+
+  return (
+    <SafeAreaView
+      style={[styles.screen, { backgroundColor: theme.background }]}
+    >
+      <View style={styles.content}>
+        <View style={styles.topBar}>
+          <Pressable
+            onPress={() => router.back()}
+            style={[styles.iconButton, { backgroundColor: theme.surface }]}
+          >
+            <Ionicons color={theme.text} name="arrow-back" size={22} />
+          </Pressable>
+          <Text
+            numberOfLines={1}
+            style={[styles.headerTitle, { color: theme.text }]}
+          >
+            {folder.name}
+          </Text>
+          <SectionActionsMenu
+            items={
+              folderActionItems as unknown as {
+                action: ItemAction;
+                label: string;
+                destructive?: boolean;
+              }[]
+            }
+            onSelect={handleAction}
+          />
+        </View>
+
+        <Text style={[styles.title, { color: theme.text }]}>{folder.name}</Text>
+
+        <View style={[styles.summary, { backgroundColor: theme.surface }]}>
+          <View style={styles.summaryRow}>
+            <Ionicons color={theme.mutedText} name="folder-outline" size={20} />
+            <Text style={[styles.summaryText, { color: theme.text }]}>
+              Total
+            </Text>
+            <Text style={[styles.summaryCount, { color: theme.mutedText }]}>
+              {total}
+            </Text>
+          </View>
+          <View style={styles.summaryRow}>
+            <Ionicons
+              color={theme.mutedText}
+              name="checkbox-outline"
+              size={20}
+            />
+            <Text style={[styles.summaryText, { color: theme.text }]}>
+              Tareas
+            </Text>
+            <Text style={[styles.summaryCount, { color: theme.mutedText }]}>
+              {counts.tasks}
+            </Text>
+          </View>
+          <View style={styles.summaryRow}>
+            <Ionicons
+              color={theme.mutedText}
+              name="document-text-outline"
+              size={20}
+            />
+            <Text style={[styles.summaryText, { color: theme.text }]}>
+              Notas
+            </Text>
+            <Text style={[styles.summaryCount, { color: theme.mutedText }]}>
+              {counts.notes}
+            </Text>
+          </View>
+          <View style={styles.summaryRow}>
+            <Ionicons color={theme.mutedText} name="bulb-outline" size={20} />
+            <Text style={[styles.summaryText, { color: theme.text }]}>
+              Ideas
+            </Text>
+            <Text style={[styles.summaryCount, { color: theme.mutedText }]}>
+              {counts.ideas}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      <Modal animationType="fade" transparent visible={isEditingName}>
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modal, { backgroundColor: theme.background }]}>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>
+              Editar nombre
+            </Text>
+            <TextInput
+              autoFocus
+              onChangeText={setFolderName}
+              placeholder="Nombre de carpeta"
+              placeholderTextColor={theme.mutedText}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: theme.surface,
+                  borderColor: theme.mutedText,
+                  color: theme.text,
+                },
+              ]}
+              value={folderName}
+            />
+            <View style={styles.modalActions}>
+              <Pressable
+                onPress={() => setIsEditingName(false)}
+                style={[
+                  styles.secondaryButton,
+                  { backgroundColor: theme.surface },
+                ]}
+              >
+                <Text
+                  style={[styles.secondaryButtonText, { color: theme.text }]}
+                >
+                  Cancelar
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={saveFolderName}
+                style={[
+                  styles.primaryButton,
+                  { backgroundColor: theme.primary },
+                ]}
+              >
+                <Text style={styles.primaryButtonText}>Guardar</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+  },
+  content: {
+    gap: spacing.md,
+    padding: spacing.md,
+  },
+  emptyContent: {
+    flex: 1,
+    gap: spacing.md,
+    justifyContent: "center",
+    padding: spacing.md,
+  },
+  topBar: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: spacing.sm,
+    justifyContent: "space-between",
+  },
+  iconButton: {
+    alignItems: "center",
+    borderRadius: radius.md,
+    height: 40,
+    justifyContent: "center",
+    width: 40,
+  },
+  headerTitle: {
+    flex: 1,
+    fontSize: typography.body,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  title: {
+    fontSize: typography.title,
+    fontWeight: "700",
+  },
+  summary: {
+    borderRadius: radius.lg,
+    gap: spacing.sm,
+    padding: spacing.md,
+  },
+  summaryRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: spacing.sm,
+    minHeight: 36,
+  },
+  summaryText: {
+    flex: 1,
+    fontSize: typography.body,
+    fontWeight: "700",
+  },
+  summaryCount: {
+    fontSize: typography.body,
+    fontWeight: "700",
+  },
+  modalBackdrop: {
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.28)",
+    flex: 1,
+    justifyContent: "center",
+    padding: spacing.md,
+  },
+  modal: {
+    borderRadius: radius.lg,
+    gap: spacing.md,
+    padding: spacing.md,
+    width: "100%",
+  },
+  modalTitle: {
+    fontSize: typography.subtitle,
+    fontWeight: "700",
+  },
+  input: {
+    borderRadius: radius.md,
+    borderWidth: 1,
+    fontSize: typography.body,
+    padding: spacing.md,
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
+  secondaryButton: {
+    borderRadius: radius.md,
+    flex: 1,
+    padding: spacing.md,
+  },
+  secondaryButtonText: {
+    fontSize: typography.body,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  primaryButton: {
+    borderRadius: radius.md,
+    flex: 1,
+    padding: spacing.md,
+  },
+  primaryButtonText: {
+    color: "#FFFFFF",
+    fontSize: typography.body,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+});

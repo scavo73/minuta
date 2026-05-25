@@ -1,39 +1,72 @@
 import { Ionicons } from "@expo/vector-icons";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { radius, spacing, typography } from "../../constants/theme";
 import { useMinutaTheme } from "../../constants/useMinutaTheme";
-import type { Folder } from "../../store/foldersStore";
+import type { FolderChipItem } from "../../lib/folders";
 
 interface FolderChipProps {
-  folder: Folder;
+  folder: FolderChipItem;
+  isSelected?: boolean;
+  onPress?: () => void;
 }
 
-export function FolderChip({ folder }: FolderChipProps) {
+export function FolderChip({
+  folder,
+  isSelected = false,
+  onPress,
+}: FolderChipProps) {
   const { theme } = useMinutaTheme();
   const total = folder.counts.tasks + folder.counts.notes + folder.counts.ideas;
+  const Container = onPress ? Pressable : View;
 
   return (
-    <View style={[styles.chip, { backgroundColor: theme.surface }]}>
+    <Container
+      onPress={onPress}
+      style={[
+        styles.chip,
+        {
+          backgroundColor: isSelected ? theme.primary : theme.surface,
+        },
+      ]}
+    >
       <Ionicons color={theme.mutedText} name="folder-outline" size={15} />
-      <Text style={[styles.name, { color: theme.text }]} numberOfLines={1}>
+      <Text
+        style={[styles.name, { color: isSelected ? "#FFFFFF" : theme.text }]}
+        numberOfLines={1}
+      >
         {folder.name}
       </Text>
-      <Text style={[styles.total, { color: theme.mutedText }]}>{total}</Text>
+      <Text
+        style={[
+          styles.total,
+          { color: isSelected ? "#FFFFFF" : theme.mutedText },
+        ]}
+      >
+        {total}
+      </Text>
       {folder.counts.tasks > 0 ? (
-        <Ionicons color={theme.mutedText} name="checkbox-outline" size={13} />
+        <Ionicons
+          color={isSelected ? "#FFFFFF" : theme.mutedText}
+          name="checkbox-outline"
+          size={13}
+        />
       ) : null}
       {folder.counts.notes > 0 ? (
         <Ionicons
-          color={theme.mutedText}
+          color={isSelected ? "#FFFFFF" : theme.mutedText}
           name="document-text-outline"
           size={13}
         />
       ) : null}
       {folder.counts.ideas > 0 ? (
-        <Ionicons color={theme.mutedText} name="bulb-outline" size={13} />
+        <Ionicons
+          color={isSelected ? "#FFFFFF" : theme.mutedText}
+          name="bulb-outline"
+          size={13}
+        />
       ) : null}
-    </View>
+    </Container>
   );
 }
 

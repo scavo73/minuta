@@ -1,45 +1,45 @@
-import { StyleSheet, View } from "react-native";
+import { ScrollView, StyleSheet } from "react-native";
 
 import { spacing } from "../../constants/theme";
-import type { Folder } from "../../store/foldersStore";
+import type { FolderChipItem, FolderFilterId } from "../../lib/folders";
 import { FolderChip } from "./FolderChip";
 
 interface FolderChipsProps {
-  folders: Folder[];
+  folders: FolderChipItem[];
+  selectedFolderId: FolderFilterId;
+  onSelectFolder: (folderId: FolderFilterId) => void;
 }
 
-export function FolderChips({ folders }: FolderChipsProps) {
+export function FolderChips({
+  folders,
+  onSelectFolder,
+  selectedFolderId,
+}: FolderChipsProps) {
   if (folders.length === 0) {
     return null;
   }
 
-  const visibleFolders: Folder[] = [
-    {
-      id: "all-folders",
-      name: "Todos",
-      counts: {
-        tasks: 0,
-        notes: 0,
-        ideas: 0,
-      },
-      createdAt: 0,
-    },
-    ...folders,
-  ];
-
   return (
-    <View style={styles.chips}>
-      {visibleFolders.map((folder) => (
-        <FolderChip folder={folder} key={folder.id} />
+    <ScrollView
+      contentContainerStyle={styles.chips}
+      horizontal
+      showsHorizontalScrollIndicator={false}
+    >
+      {folders.map((folder) => (
+        <FolderChip
+          folder={folder}
+          isSelected={selectedFolderId === folder.id}
+          key={folder.id}
+          onPress={() => onSelectFolder(folder.id)}
+        />
       ))}
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   chips: {
     flexDirection: "row",
-    flexWrap: "wrap",
     gap: spacing.sm,
     marginBottom: 12,
   },

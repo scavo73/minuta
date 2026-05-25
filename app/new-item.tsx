@@ -1,5 +1,5 @@
 import * as ImagePicker from "expo-image-picker";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import {
   Image,
@@ -15,12 +15,14 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { z } from "zod";
 
+import { FolderSelector } from "../components/folders/FolderSelector";
 import { ManageTagsButton } from "../components/ideas/ManageTagsButton";
 import { TagSuggestions } from "../components/ideas/TagSuggestions";
 import { radius, spacing, typography } from "../constants/theme";
 import { useMinutaTheme } from "../constants/useMinutaTheme";
 import { createItem, updateIdeaTags } from "../lib/api";
 import { getUniqueIdeaTags, parseTags } from "../lib/tags";
+import { useFoldersStore } from "../store/foldersStore";
 import { useNotesStore } from "../store/notesStore";
 import type { NoteKind } from "../types";
 
@@ -68,15 +70,29 @@ function getValidationErrors(error: z.ZodError): FormErrors {
 
 export default function NuevaNotaScreen() {
   const { theme } = useMinutaTheme();
+  const params = useLocalSearchParams<{
+    folderId?: string;
+    kind?: NoteKind;
+  }>();
+  const folders = useFoldersStore((state) => state.folders);
   const ideas = useNotesStore((state) => state.ideas);
   const fetchItems = useNotesStore((state) => state.fetchItems);
-  const [kind, setKind] = useState<NoteKind>("note");
+  const initialKind =
+    params.kind === "task" || params.kind === "idea" || params.kind === "note"
+      ? params.kind
+      : "note";
+  const initialFolderId =
+    typeof params.folderId === "string" && params.folderId.length > 0
+      ? params.folderId
+      : null;
+  const [kind, setKind] = useState<NoteKind>(initialKind);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [imageUri, setImageUri] = useState<string | undefined>();
   const [taskText, setTaskText] = useState("");
   const [tagsText, setTagsText] = useState("");
   const [color, setColor] = useState(ideaColors[0]);
+  const [folderId, setFolderId] = useState<string | null>(initialFolderId);
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const availableTags = getUniqueIdeaTags(ideas);
@@ -126,6 +142,7 @@ export default function NuevaNotaScreen() {
           image_url: result.data.imageUri?.startsWith("http")
             ? result.data.imageUri
             : undefined,
+          folder_id: folderId,
         });
 
         await fetchItems();
@@ -147,6 +164,7 @@ export default function NuevaNotaScreen() {
           title: result.data.text,
           type: "checklist",
           content: result.data.text,
+          folder_id: folderId,
         });
 
         await fetchItems();
@@ -171,6 +189,7 @@ export default function NuevaNotaScreen() {
         title: result.data.title,
         type: "idea",
         color: result.data.color,
+        folder_id: folderId,
       });
 
       await updateIdeaTags(idea.id, result.data.tags ?? []);
@@ -334,6 +353,12 @@ export default function NuevaNotaScreen() {
               ) : null}
             </View>
           ) : null}
+
+          <FolderSelector
+            folders={folders}
+            selectedFolderId={folderId}
+            onChange={setFolderId}
+          />
 
           {kind === "task" ? (
             <View style={styles.field}>

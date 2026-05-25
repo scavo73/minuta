@@ -12,9 +12,11 @@ import {
 
 import { ManageTagsButton } from "../ideas/ManageTagsButton";
 import { TagSuggestions } from "../ideas/TagSuggestions";
+import { FolderSelector } from "../folders/FolderSelector";
 import { radius, spacing, typography } from "../../constants/theme";
 import { useMinutaTheme } from "../../constants/useMinutaTheme";
 import { parseTags } from "../../lib/tags";
+import type { Folder } from "../../store/foldersStore";
 import type { IdeaNote, Note } from "../../types";
 
 type EditableItem = Note | IdeaNote;
@@ -25,18 +27,21 @@ type EditItemValues =
       title: string;
       content: string;
       imageUri?: string;
+      folderId?: string | null;
     }
   | {
       kind: "idea";
       title: string;
       tags: string[];
       color: string;
+      folderId?: string | null;
     };
 
 interface EditItemFormProps {
   item: EditableItem;
   kind: "note" | "idea";
   availableTags?: string[];
+  folders: Folder[];
   onCancel: () => void;
   onSave: (values: EditItemValues) => void;
 }
@@ -67,6 +72,7 @@ function getInitialColor(item: EditableItem) {
 
 export function EditItemForm({
   availableTags = [],
+  folders,
   item,
   kind,
   onCancel,
@@ -80,6 +86,7 @@ export function EditItemForm({
   );
   const [tagsText, setTagsText] = useState(getInitialTags(item));
   const [color, setColor] = useState(getInitialColor(item));
+  const [folderId, setFolderId] = useState(item.folderId ?? null);
   const [errors, setErrors] = useState<FormErrors>({});
   const selectedTags = parseTags(tagsText);
 
@@ -127,6 +134,7 @@ export function EditItemForm({
         title: nextTitle,
         content: nextContent,
         imageUri,
+        folderId,
       });
       return;
     }
@@ -136,6 +144,7 @@ export function EditItemForm({
       title: nextTitle,
       tags: parseTags(tagsText),
       color,
+      folderId,
     });
   };
 
@@ -234,6 +243,12 @@ export function EditItemForm({
           ) : null}
         </View>
       ) : null}
+
+      <FolderSelector
+        folders={folders}
+        selectedFolderId={folderId}
+        onChange={setFolderId}
+      />
 
       {kind === "idea" ? (
         <>

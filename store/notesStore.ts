@@ -28,15 +28,18 @@ interface NotesStore {
 
   updateNote: (
     id: string,
-    updates: Pick<Note, "title" | "content" | "imageUri">,
+    updates: Pick<Note, "title" | "content" | "imageUri" | "folderId">,
   ) => Promise<void>;
 
   updateIdea: (
     id: string,
-    updates: Pick<IdeaNote, "title" | "tags" | "color">,
+    updates: Pick<IdeaNote, "title" | "tags" | "color" | "folderId">,
   ) => Promise<void>;
 
-  updateTask: (id: string, updates: Pick<Task, "text">) => Promise<void>;
+  updateTask: (
+    id: string,
+    updates: Pick<Task, "text" | "folderId">,
+  ) => Promise<void>;
 
   deleteNote: (id: string) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
@@ -62,6 +65,11 @@ interface NotesStore {
   unarchiveAllIdeas: () => void;
   deleteAllArchivedNotes: () => Promise<void>;
   deleteAllArchivedIdeas: () => Promise<void>;
+  clearFolderItems: (folderId: string) => Promise<void>;
+  deleteFolderIdeas: (folderId: string) => Promise<void>;
+  deleteFolderNotes: (folderId: string) => Promise<void>;
+  deleteFolderTasks: (folderId: string) => Promise<void>;
+  deleteFolderWithContent: (folderId: string) => Promise<void>;
   convertIdeaToTask: (id: string) => void;
   toggleTask: (id: string) => Promise<void>;
   getItemById: (id: string) => AnyNote | undefined;
@@ -88,6 +96,7 @@ function mapRemoteNoteToLocal(item: MinutaItem): Note {
     imageUri: item.image_url ?? undefined,
     createdAt: new Date(item.created_at),
     updatedAt: new Date(item.updated_at),
+    folderId: item.folder_id ?? null,
   };
 }
 
@@ -99,6 +108,7 @@ function mapRemoteIdeaToLocal(item: MinutaItem): IdeaNote {
     tags: item.tags ?? [],
     createdAt: new Date(item.created_at),
     updatedAt: new Date(item.updated_at),
+    folderId: item.folder_id ?? null,
   };
 }
 
@@ -109,6 +119,7 @@ function mapRemoteChecklistToLocal(item: MinutaItem): Task {
     isCompleted: item.is_completed,
     createdAt: new Date(item.created_at),
     updatedAt: new Date(item.updated_at),
+    folderId: item.folder_id ?? null,
   };
 }
 
@@ -181,6 +192,7 @@ export const useNotesStore = create<NotesStore>()(
             image_url: updates.imageUri?.startsWith("http")
               ? updates.imageUri
               : undefined,
+            folder_id: updates.folderId ?? null,
           });
 
           await get().fetchItems();
@@ -199,6 +211,7 @@ export const useNotesStore = create<NotesStore>()(
           await updateRemoteItem(id, {
             title: updates.title,
             color: updates.color,
+            folder_id: updates.folderId ?? null,
           });
 
           await updateIdeaTags(id, updates.tags ?? []);
@@ -219,6 +232,7 @@ export const useNotesStore = create<NotesStore>()(
           await updateRemoteItem(id, {
             title: updates.text,
             content: updates.text,
+            folder_id: updates.folderId ?? null,
           });
 
           await get().fetchItems();
@@ -456,6 +470,113 @@ export const useNotesStore = create<NotesStore>()(
         }
       },
 
+      clearFolderItems: async (folderId) => {
+        try {
+          const state = get();
+          const items = [
+            ...state.notes.filter((note) => note.folderId === folderId),
+            ...state.ideas.filter((idea) => idea.folderId === folderId),
+            ...state.tasks.filter((task) => task.folderId === folderId),
+          ];
+
+          await Promise.all(
+            items.map((item) => updateRemoteItem(item.id, { folder_id: null })),
+          );
+
+          set((currentState) => ({
+            notes: currentState.notes.map((note) =>
+              note.folderId === folderId ? { ...note, folderId: null } : note,
+            ),
+            ideas: currentState.ideas.map((idea) =>
+              idea.folderId === folderId ? { ...idea, folderId: null } : idea,
+            ),
+            tasks: currentState.tasks.map((task) =>
+              task.folderId === folderId ? { ...task, folderId: null } : task,
+            ),
+            error: null,
+          }));
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error
+                ? error.message
+                : "Error al quitar la carpeta de los items",
+          });
+        }
+      },
+
+      deleteFolderTasks: async (folderId) => {
+        try {
+          const tasks = get().tasks.filter(
+            (task) => task.folderId === folderId,
+          );
+
+          await Promise.all(tasks.map((task) => deleteRemoteItem(task.id)));
+
+          set((state) => ({
+            tasks: state.tasks.filter((task) => task.folderId !== folderId),
+            error: null,
+          }));
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error
+                ? error.message
+                : "Error al eliminar las tareas de la carpeta",
+          });
+        }
+      },
+
+      deleteFolderNotes: async (folderId) => {
+        try {
+          const notes = get().notes.filter(
+            (note) => note.folderId === folderId,
+          );
+
+          await Promise.all(notes.map((note) => deleteRemoteItem(note.id)));
+
+          set((state) => ({
+            notes: state.notes.filter((note) => note.folderId !== folderId),
+            error: null,
+          }));
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error
+                ? error.message
+                : "Error al eliminar las notas de la carpeta",
+          });
+        }
+      },
+
+      deleteFolderIdeas: async (folderId) => {
+        try {
+          const ideas = get().ideas.filter(
+            (idea) => idea.folderId === folderId,
+          );
+
+          await Promise.all(ideas.map((idea) => deleteRemoteItem(idea.id)));
+
+          set((state) => ({
+            ideas: state.ideas.filter((idea) => idea.folderId !== folderId),
+            error: null,
+          }));
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error
+                ? error.message
+                : "Error al eliminar las ideas de la carpeta",
+          });
+        }
+      },
+
+      deleteFolderWithContent: async (folderId) => {
+        await get().deleteFolderTasks(folderId);
+        await get().deleteFolderNotes(folderId);
+        await get().deleteFolderIdeas(folderId);
+      },
+
       markAllTasksDone: async () => {
         try {
           const pendingTasks = get().tasks.filter((task) => !task.isCompleted);
@@ -540,6 +661,7 @@ export const useNotesStore = create<NotesStore>()(
                 isCompleted: false,
                 createdAt: now,
                 updatedAt: now,
+                folderId: idea.folderId ?? null,
               },
               ...state.tasks,
             ],

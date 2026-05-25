@@ -3,6 +3,7 @@ export interface BaseNote {
   title: string;
   createdAt: Date;
   updatedAt: Date;
+  folderId?: string | null;
   isArchived?: boolean;
   isMarked?: boolean;
 }
@@ -18,6 +19,7 @@ export interface Task {
   isCompleted: boolean;
   createdAt: Date;
   updatedAt: Date;
+  folderId?: string | null;
 }
 
 export interface IdeaNote extends BaseNote {

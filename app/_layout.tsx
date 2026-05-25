@@ -1,9 +1,9 @@
 //import '../global.css';
 
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
+import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 
-import { GluestackUIProvider } from '../components/ui/gluestack-ui-provider';
+import { GluestackUIProvider } from "../components/ui/gluestack-ui-provider";
 
 export default function RootLayout() {
   return (
@@ -14,12 +14,13 @@ export default function RootLayout() {
         <Stack.Screen
           name="new-item"
           options={{
-            presentation: 'modal',
+            presentation: "modal",
             //hanimation: 'slide_from_bottom',
             gestureEnabled: true,
           }}
         />
         <Stack.Screen name="item/[id]" />
+        <Stack.Screen name="folder/[id]" />
       </Stack>
     </GluestackUIProvider>
   );
