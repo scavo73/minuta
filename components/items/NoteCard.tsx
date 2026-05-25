@@ -1,18 +1,23 @@
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from "@expo/vector-icons";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 
-import { radius, spacing, typography } from '../../constants/theme';
-import { useMinutaTheme } from '../../constants/useMinutaTheme';
-import type { Note } from '../../types';
+import { radius, spacing, typography } from "../../constants/theme";
+import { useMinutaTheme } from "../../constants/useMinutaTheme";
+import type { Note } from "../../types";
 
 interface NoteCardProps {
   note: Note;
-  variant?: 'default' | 'home';
+  variant?: "default" | "home";
   onPress?: () => void;
 }
 
-export function NoteCard({ note, onPress, variant = 'default' }: NoteCardProps) {
+export function NoteCard({
+  note,
+  onPress,
+  variant = "default",
+}: NoteCardProps) {
   const { theme } = useMinutaTheme();
-  const isHome = variant === 'home';
+  const isHome = variant === "home";
 
   return (
     <Pressable
@@ -31,7 +36,15 @@ export function NoteCard({ note, onPress, variant = 'default' }: NoteCardProps) 
         />
       ) : null}
       <View style={styles.header}>
-        <Text style={[styles.label, { color: theme.primary }]}>Nota</Text>
+        {isHome ? (
+          <Ionicons
+            color={theme.primary}
+            name="document-text-outline"
+            size={18}
+          />
+        ) : (
+          <Text style={[styles.label, { color: theme.primary }]}>Nota</Text>
+        )}
         <Text style={[styles.date, { color: theme.mutedText }]}>
           {note.updatedAt.toLocaleDateString()}
         </Text>
@@ -72,7 +85,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     height: 160,
     marginBottom: spacing.sm,
-    width: '100%',
+    width: "100%",
   },
   homeImage: {
     aspectRatio: 1,
@@ -80,21 +93,21 @@ const styles = StyleSheet.create({
     height: undefined,
   },
   header: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: spacing.sm,
   },
   label: {
     fontSize: typography.small,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   date: {
     fontSize: typography.small,
   },
   title: {
     fontSize: typography.subtitle,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   homeTitle: {
     fontSize: typography.body,

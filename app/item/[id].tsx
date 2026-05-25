@@ -1,4 +1,5 @@
 import * as Haptics from "expo-haptics";
+import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import {
   Alert,
@@ -138,7 +139,7 @@ export default function ItemDetailScreen() {
             onPress={() => router.back()}
             style={[styles.primaryButton, { backgroundColor: theme.primary }]}
           >
-            <Text style={styles.primaryButtonText}>Volver</Text>
+            <Ionicons color="#FFFFFF" name="arrow-back" size={22} />
           </Pressable>
         </View>
       </SafeAreaView>
@@ -155,9 +156,7 @@ export default function ItemDetailScreen() {
             onPress={() => router.back()}
             style={[styles.backButton, { backgroundColor: theme.surface }]}
           >
-            <Text style={[styles.backButtonText, { color: theme.text }]}>
-              Volver
-            </Text>
+            <Ionicons color={theme.text} name="arrow-back" size={22} />
           </Pressable>
           {!isTask(item) ? (
             <ItemActionsMenu
@@ -269,10 +268,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
-  backButtonText: {
-    fontSize: typography.body,
-    fontWeight: "700",
-  },
   image: {
     aspectRatio: 1,
     borderRadius: radius.lg,
@@ -294,6 +289,7 @@ const styles = StyleSheet.create({
     fontSize: typography.body,
   },
   primaryButton: {
+    alignItems: "center",
     borderRadius: radius.md,
     padding: spacing.md,
   },

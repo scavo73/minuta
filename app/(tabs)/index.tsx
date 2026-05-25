@@ -9,22 +9,19 @@ import {
   TextInput,
   View,
 } from "react-native";
-import Reanimated, { LinearTransition } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { FolderChips } from "../../components/folders/FolderChips";
 import { HomeTasksWidget } from "../../components/items/HomeTasksWidget";
 import { IdeaCard } from "../../components/items/IdeaCard";
 import { NoteCard } from "../../components/items/NoteCard";
 import { spacing, typography } from "../../constants/theme";
 import { useMinutaTheme } from "../../constants/useMinutaTheme";
+import { useFoldersStore } from "../../store/foldersStore";
 import { useNotesStore } from "../../store/notesStore";
 import { IdeaNote, isIdeaNote, isTextNote, Note } from "../../types";
 
 type HomeMasonryItem = Note | IdeaNote;
-
-const gridLayoutTransition = LinearTransition.springify()
-  .damping(16)
-  .stiffness(180);
 
 function normalizeSearch(value: string) {
   return value.trim().toLowerCase();
@@ -101,6 +98,7 @@ export default function HomeScreen() {
 
   const widgetAnim = useRef(new Animated.Value(1)).current;
 
+  const folders = useFoldersStore((state) => state.folders);
   const notes = useNotesStore((state) => state.notes);
   const ideas = useNotesStore((state) => state.ideas);
   const tasks = useNotesStore((state) => state.tasks);
@@ -175,6 +173,11 @@ export default function HomeScreen() {
             ]}
             value={searchQuery}
           />
+          {folders.length > 0 ? (
+            <View style={styles.folderChipsWrapper}>
+              <FolderChips folders={folders} />
+            </View>
+          ) : null}
 
           <Animated.View
             pointerEvents={shouldHideWidget ? "none" : "auto"}
@@ -182,14 +185,14 @@ export default function HomeScreen() {
               styles.widgetAnimatedWrapper,
               widgetHeight > 0
                 ? {
-                  height: animatedWidgetHeight,
-                  marginTop: animatedWidgetMarginTop,
-                  opacity: widgetAnim,
-                }
+                    height: animatedWidgetHeight,
+                    marginTop: animatedWidgetMarginTop,
+                    opacity: widgetAnim,
+                  }
                 : {
-                  opacity: widgetAnim,
-                  marginTop: 12,
-                },
+                    opacity: widgetAnim,
+                    marginTop: 12,
+                  },
             ]}
           >
             <View
@@ -206,7 +209,7 @@ export default function HomeScreen() {
           </Animated.View>
         </View>
 
-        <Reanimated.View layout={gridLayoutTransition}>
+        <View>
           {allItems.length === 0 ? (
             <Text style={[styles.empty, { color: theme.mutedText }]}>
               Todavía no hay notas ni ideas.
@@ -238,7 +241,7 @@ export default function HomeScreen() {
               </View>
             </View>
           )}
-        </Reanimated.View>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -278,6 +281,10 @@ const styles = StyleSheet.create({
     fontSize: typography.body,
     paddingHorizontal: spacing.md,
     paddingVertical: 12,
+  },
+
+  folderChipsWrapper: {
+    marginTop: 12,
   },
 
   widgetAnimatedWrapper: {

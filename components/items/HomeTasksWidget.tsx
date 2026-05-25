@@ -1,6 +1,6 @@
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { useEffect, useRef } from 'react';
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import { useEffect, useRef } from "react";
 import {
   Animated,
   Easing,
@@ -11,11 +11,11 @@ import {
   Text,
   UIManager,
   View,
-} from 'react-native';
+} from "react-native";
 
-import { radius, spacing, typography } from '../../constants/theme';
-import { useMinutaTheme } from '../../constants/useMinutaTheme';
-import type { Task } from '../../types';
+import { radius, spacing, typography } from "../../constants/theme";
+import { useMinutaTheme } from "../../constants/useMinutaTheme";
+import type { Task } from "../../types";
 
 interface HomeTasksWidgetProps {
   tasks: Task[];
@@ -27,7 +27,7 @@ interface HomeTaskRowProps {
   onComplete: (id: string) => void;
 }
 
-if (Platform.OS === 'android') {
+if (Platform.OS === "android") {
   UIManager.setLayoutAnimationEnabledExperimental?.(true);
 }
 
@@ -35,6 +35,7 @@ function HomeTaskRow({ onComplete, task }: HomeTaskRowProps) {
   const { theme } = useMinutaTheme();
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(14)).current;
+  const rowHeight = useRef(new Animated.Value(1)).current;
   const isCompleting = useRef(false);
 
   useEffect(() => {
@@ -68,52 +69,87 @@ function HomeTaskRow({ onComplete, task }: HomeTaskRowProps) {
       }),
       Animated.timing(translateY, {
         toValue: -10,
-        duration: 170,
+        duration: 190,
         easing: Easing.in(Easing.ease),
         useNativeDriver: true,
       }),
+      Animated.timing(rowHeight, {
+        toValue: 0,
+        duration: 210,
+        easing: Easing.inOut(Easing.ease),
+        useNativeDriver: false,
+      }),
     ]).start(() => {
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      LayoutAnimation.configureNext({
+        duration: 180,
+        update: {
+          type: LayoutAnimation.Types.easeInEaseOut,
+        },
+        delete: {
+          property: LayoutAnimation.Properties.opacity,
+          type: LayoutAnimation.Types.easeInEaseOut,
+        },
+      });
       onComplete(task.id);
     });
   };
 
   return (
-    <Animated.View style={{ opacity, transform: [{ translateY }] }}>
-      <Pressable
-        onPress={completeTask}
-        style={[styles.taskRow, { backgroundColor: theme.surface }]}
+    <Animated.View
+      style={[
+        styles.taskRowClip,
+        {
+          marginBottom: rowHeight.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, spacing.sm],
+          }),
+          maxHeight: rowHeight.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, 96],
+          }),
+        },
+      ]}
+    >
+      <Animated.View
+        style={[
+          {
+            opacity,
+            transform: [{ translateY }],
+          },
+        ]}
       >
-        <View
-          style={[
-            styles.checkbox,
-            {
-              backgroundColor: 'transparent',
-              borderColor: theme.mutedText,
-            },
-          ]}
-        />
-        <Text
-          numberOfLines={2}
-          style={[
-            styles.taskText,
-            {
-              color: theme.text,
-              textDecorationLine: 'none',
-            },
-          ]}
+        <Pressable
+          onPress={completeTask}
+          style={[styles.taskRow, { backgroundColor: theme.surface }]}
         >
-          {task.text}
-        </Text>
-      </Pressable>
+          <View
+            style={[
+              styles.checkbox,
+              {
+                backgroundColor: "transparent",
+                borderColor: theme.mutedText,
+              },
+            ]}
+          />
+          <Text
+            numberOfLines={2}
+            style={[
+              styles.taskText,
+              {
+                color: theme.text,
+                textDecorationLine: "none",
+              },
+            ]}
+          >
+            {task.text}
+          </Text>
+        </Pressable>
+      </Animated.View>
     </Animated.View>
   );
 }
 
-export function HomeTasksWidget({
-  tasks,
-  onToggleTask,
-}: HomeTasksWidgetProps) {
+export function HomeTasksWidget({ tasks, onToggleTask }: HomeTasksWidgetProps) {
   const { theme } = useMinutaTheme();
   const pendingTasks = tasks.filter((task) => !task.isCompleted);
   const visibleTasks = pendingTasks.slice(0, 3);
@@ -121,7 +157,7 @@ export function HomeTasksWidget({
   const subtitle =
     pendingTasks.length > 0
       ? `Tienes ${pendingTasks.length} tareas pendientes`
-      : 'No tienes tareas pendientes';
+      : "No tienes tareas pendientes";
 
   return (
     <View style={[styles.widget, { backgroundColor: theme.taskCard }]}>
@@ -136,7 +172,7 @@ export function HomeTasksWidget({
         {hasMoreTasks ? (
           <Pressable
             accessibilityLabel="Ver todas las tareas"
-            onPress={() => router.push('/checklists')}
+            onPress={() => router.push("/checklists")}
             style={[styles.moreButton, { backgroundColor: theme.surface }]}
           >
             <Ionicons
@@ -158,11 +194,7 @@ export function HomeTasksWidget({
           </View>
         ) : (
           visibleTasks.map((task) => (
-            <HomeTaskRow
-              key={task.id}
-              onComplete={onToggleTask}
-              task={task}
-            />
+            <HomeTaskRow key={task.id} onComplete={onToggleTask} task={task} />
           ))
         )}
       </View>
@@ -176,17 +208,17 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   header: {
-    alignItems: 'flex-start',
-    flexDirection: 'row',
+    alignItems: "flex-start",
+    flexDirection: "row",
     gap: spacing.md,
-    justifyContent: 'space-between',
+    justifyContent: "space-between",
   },
   heading: {
     flex: 1,
   },
   title: {
     fontSize: typography.subtitle,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   subtitle: {
     fontSize: typography.body,
@@ -194,43 +226,45 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   moreButton: {
-    alignItems: 'center',
+    alignItems: "center",
     borderRadius: 999,
     height: 38,
-    justifyContent: 'center',
+    justifyContent: "center",
     width: 38,
   },
   moreIcon: {
-    transform: [{ rotate: '40deg' }],
+    transform: [{ rotate: "40deg" }],
   },
   rows: {
-    gap: spacing.sm,
     marginTop: spacing.md,
   },
+  taskRowClip: {
+    overflow: "hidden",
+  },
   taskRow: {
-    alignItems: 'center',
+    alignItems: "center",
     borderRadius: radius.lg,
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: spacing.sm,
     padding: spacing.md,
   },
   checkbox: {
-    alignItems: 'center',
+    alignItems: "center",
     borderRadius: 999,
     borderWidth: 2,
     height: 26,
-    justifyContent: 'center',
+    justifyContent: "center",
     width: 26,
   },
   checkmark: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: typography.small,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   taskText: {
     flex: 1,
     fontSize: typography.body,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   emptyRow: {
     borderRadius: radius.lg,

@@ -14,9 +14,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { showDeleteConfirm } from "../../components/actions/DeleteConfirmDialog";
 import { SectionActionsMenu } from "../../components/actions/SectionActionsMenu";
 import type { ItemAction } from "../../components/actions/actions";
+import { FolderButton } from "../../components/folders/FolderButton";
+import { FolderChips } from "../../components/folders/FolderChips";
+import { FoldersModal } from "../../components/folders/FoldersModal";
 import { TaskRow } from "../../components/items/TaskRow";
 import { spacing, typography } from "../../constants/theme";
 import { useMinutaTheme } from "../../constants/useMinutaTheme";
+import { useFoldersStore } from "../../store/foldersStore";
 import { useNotesStore } from "../../store/notesStore";
 import type { Task } from "../../types";
 
@@ -30,6 +34,9 @@ export default function ChecklistsScreen() {
   const [isRowSwiping, setIsRowSwiping] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingTaskText, setEditingTaskText] = useState("");
+  const [isFoldersModalOpen, setIsFoldersModalOpen] = useState(false);
+  const folders = useFoldersStore((state) => state.folders);
+  const addFolder = useFoldersStore((state) => state.addFolder);
   const tasks = useNotesStore((state) => state.tasks);
   const deleteAllTasks = useNotesStore((state) => state.deleteAllTasks);
   const deleteCompletedTasks = useNotesStore(
@@ -124,32 +131,41 @@ export default function ChecklistsScreen() {
                 <Text style={[styles.title, { color: theme.text }]}>
                   Tareas
                 </Text>
-                {editingTaskId ? (
-                  <Pressable
-                    accessibilityLabel="Guardar tarea"
-                    onPress={saveEditingTask}
-                    style={[styles.saveButton, { backgroundColor: "#22C55E" }]}
-                  >
-                    <Ionicons color="#FFFFFF" name="checkmark" size={22} />
-                  </Pressable>
-                ) : (
-                  <SectionActionsMenu
-                    items={[
-                      { action: "markAll", label: "Marcar todas como hechas" },
-                      {
-                        action: "deleteCompleted",
-                        label: "Borrar completadas",
-                        destructive: true,
-                      },
-                      {
-                        action: "deleteAll",
-                        label: "Borrar todas",
-                        destructive: true,
-                      },
-                    ]}
-                    onSelect={handleSectionAction}
-                  />
-                )}
+                <View style={styles.headerActions}>
+                  <FolderButton onPress={() => setIsFoldersModalOpen(true)} />
+                  {editingTaskId ? (
+                    <Pressable
+                      accessibilityLabel="Guardar tarea"
+                      onPress={saveEditingTask}
+                      style={[
+                        styles.saveButton,
+                        { backgroundColor: "#22C55E" },
+                      ]}
+                    >
+                      <Ionicons color="#FFFFFF" name="checkmark" size={22} />
+                    </Pressable>
+                  ) : (
+                    <SectionActionsMenu
+                      items={[
+                        {
+                          action: "markAll",
+                          label: "Marcar todas como hechas",
+                        },
+                        {
+                          action: "deleteCompleted",
+                          label: "Borrar completadas",
+                          destructive: true,
+                        },
+                        {
+                          action: "deleteAll",
+                          label: "Borrar todas",
+                          destructive: true,
+                        },
+                      ]}
+                      onSelect={handleSectionAction}
+                    />
+                  )}
+                </View>
               </View>
               <TextInput
                 onChangeText={setSearchQuery}
@@ -164,6 +180,7 @@ export default function ChecklistsScreen() {
                 ]}
                 value={searchQuery}
               />
+              <FolderChips folders={folders} />
             </View>
           }
           ListEmptyComponent={
@@ -191,6 +208,12 @@ export default function ChecklistsScreen() {
           )}
         />
       </View>
+      <FoldersModal
+        folders={folders}
+        isOpen={isFoldersModalOpen}
+        onClose={() => setIsFoldersModalOpen(false)}
+        onCreateFolder={addFolder}
+      />
     </SafeAreaView>
   );
 }
@@ -214,6 +237,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
+  },
+  headerActions: {
+    flexDirection: "row",
+    gap: spacing.sm,
   },
   saveButton: {
     alignItems: "center",

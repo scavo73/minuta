@@ -1,19 +1,24 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from "@expo/vector-icons";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { radius, spacing, typography } from '../../constants/theme';
-import { useMinutaTheme } from '../../constants/useMinutaTheme';
-import type { IdeaNote } from '../../types';
+import { radius, spacing, typography } from "../../constants/theme";
+import { useMinutaTheme } from "../../constants/useMinutaTheme";
+import type { IdeaNote } from "../../types";
 
 interface IdeaCardProps {
   idea: IdeaNote;
-  variant?: 'default' | 'home';
+  variant?: "default" | "home";
   onPress?: () => void;
 }
 
-export function IdeaCard({ idea, onPress, variant = 'default' }: IdeaCardProps) {
+export function IdeaCard({
+  idea,
+  onPress,
+  variant = "default",
+}: IdeaCardProps) {
   const { theme } = useMinutaTheme();
-  const tags = idea.tags.length > 0 ? idea.tags : ['Sin etiquetas'];
-  const isHome = variant === 'home';
+  const tags = idea.tags.length > 0 ? idea.tags : ["Sin etiquetas"];
+  const isHome = variant === "home";
 
   return (
     <Pressable
@@ -25,7 +30,11 @@ export function IdeaCard({ idea, onPress, variant = 'default' }: IdeaCardProps) 
       ]}
     >
       <View style={styles.header}>
-        <Text style={[styles.label, { color: theme.text }]}>Idea</Text>
+        {isHome ? (
+          <Ionicons color={theme.mutedText} name="bulb-outline" size={18} />
+        ) : (
+          <Text style={[styles.label, { color: theme.mutedText }]}>Idea</Text>
+        )}
         <Text style={[styles.date, { color: theme.mutedText }]}>
           {idea.updatedAt.toLocaleDateString()}
         </Text>
@@ -66,28 +75,28 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   header: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: spacing.sm,
   },
   label: {
     fontSize: typography.small,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   date: {
     fontSize: typography.small,
   },
   title: {
     fontSize: typography.subtitle,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   homeTitle: {
     fontSize: typography.body,
   },
   tags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: spacing.xs,
     marginTop: spacing.md,
   },
@@ -101,6 +110,6 @@ const styles = StyleSheet.create({
   },
   chipText: {
     fontSize: typography.small,
-    fontWeight: '700',
+    fontWeight: "700",
   },
 });

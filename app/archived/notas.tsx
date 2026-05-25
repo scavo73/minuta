@@ -1,4 +1,5 @@
 import { FlashList } from "@shopify/flash-list";
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -70,9 +71,7 @@ export default function ArchivedNotesScreen() {
                 onPress={() => router.back()}
                 style={[styles.backButton, { backgroundColor: theme.surface }]}
               >
-                <Text style={[styles.backButtonText, { color: theme.text }]}>
-                  Volver
-                </Text>
+                <Ionicons color={theme.text} name="arrow-back" size={22} />
               </Pressable>
               <SectionActionsMenu
                 items={[
@@ -140,14 +139,12 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   backButton: {
+    alignItems: "center",
     alignSelf: "flex-start",
     borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  backButtonText: {
-    fontSize: typography.body,
-    fontWeight: "700",
+    height: 40,
+    justifyContent: "center",
+    width: 40,
   },
   title: {
     fontSize: typography.title,

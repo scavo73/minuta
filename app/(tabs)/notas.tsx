@@ -8,10 +8,14 @@ import { showDeleteConfirm } from "../../components/actions/DeleteConfirmDialog"
 import { SectionActionsMenu } from "../../components/actions/SectionActionsMenu";
 import { SwipeableItemCard } from "../../components/actions/SwipeableItemCard";
 import type { ItemAction } from "../../components/actions/actions";
+import { FolderButton } from "../../components/folders/FolderButton";
+import { FolderChips } from "../../components/folders/FolderChips";
+import { FoldersModal } from "../../components/folders/FoldersModal";
 import { ArchivedRow } from "../../components/items/ArchivedRow";
 import { NoteCard } from "../../components/items/NoteCard";
 import { spacing, typography } from "../../constants/theme";
 import { useMinutaTheme } from "../../constants/useMinutaTheme";
+import { useFoldersStore } from "../../store/foldersStore";
 import { useNotesStore } from "../../store/notesStore";
 
 function normalizeSearch(value: string) {
@@ -22,6 +26,9 @@ export default function NotasScreen() {
   const { theme } = useMinutaTheme();
   const [searchQuery, setSearchQuery] = useState("");
   const [isRowSwiping, setIsRowSwiping] = useState(false);
+  const [isFoldersModalOpen, setIsFoldersModalOpen] = useState(false);
+  const folders = useFoldersStore((state) => state.folders);
+  const addFolder = useFoldersStore((state) => state.addFolder);
   const notes = useNotesStore((state) => state.notes);
   const archiveNote = useNotesStore((state) => state.archiveNote);
   const archiveAllNotes = useNotesStore((state) => state.archiveAllNotes);
@@ -76,17 +83,20 @@ export default function NotasScreen() {
             <View>
               <View style={styles.sectionHeader}>
                 <Text style={[styles.title, { color: theme.text }]}>Notas</Text>
-                <SectionActionsMenu
-                  items={[
-                    { action: "archive", label: "Archivar todas" },
-                    {
-                      action: "deleteAll",
-                      label: "Borrar todas",
-                      destructive: true,
-                    },
-                  ]}
-                  onSelect={handleSectionAction}
-                />
+                <View style={styles.headerActions}>
+                  <FolderButton onPress={() => setIsFoldersModalOpen(true)} />
+                  <SectionActionsMenu
+                    items={[
+                      { action: "archive", label: "Archivar todas" },
+                      {
+                        action: "deleteAll",
+                        label: "Borrar todas",
+                        destructive: true,
+                      },
+                    ]}
+                    onSelect={handleSectionAction}
+                  />
+                </View>
               </View>
               <TextInput
                 onChangeText={setSearchQuery}
@@ -101,6 +111,7 @@ export default function NotasScreen() {
                 ]}
                 value={searchQuery}
               />
+              <FolderChips folders={folders} />
               {archivedNotes.length > 0 ? (
                 <ArchivedRow onPress={() => router.push("/archived/notas")} />
               ) : null}
@@ -133,6 +144,12 @@ export default function NotasScreen() {
           )}
         />
       </View>
+      <FoldersModal
+        folders={folders}
+        isOpen={isFoldersModalOpen}
+        onClose={() => setIsFoldersModalOpen(false)}
+        onCreateFolder={addFolder}
+      />
     </SafeAreaView>
   );
 }
@@ -156,6 +173,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
+  },
+  headerActions: {
+    flexDirection: "row",
+    gap: spacing.sm,
   },
   searchInput: {
     borderRadius: 16,
