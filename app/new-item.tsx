@@ -18,8 +18,10 @@ import { z } from 'zod';
 import { radius, spacing, typography } from '../constants/theme';
 import { useMinutaTheme } from '../constants/useMinutaTheme';
 import { useNotesStore } from '../store/notesStore';
-import { createItem } from '../lib/api';
+import { createItem, updateIdeaTags } from '../lib/api';
 import type { NoteKind } from '../types';
+
+
 
 const noteSchema = z.object({
   title: z.string().min(3, 'El título debe tener al menos 3 caracteres'),
@@ -162,11 +164,13 @@ export default function NuevaNotaScreen() {
         return;
       }
 
-      await createItem({
+      const idea = await createItem({
         title: result.data.title,
         type: 'idea',
         color: result.data.color,
       });
+
+      await updateIdeaTags(idea.id, result.data.tags ?? []);
 
       await fetchItems();
       router.back();

@@ -13,6 +13,7 @@ export type MinutaItem = {
     created_at: string;
     updated_at: string;
     is_completed: boolean;
+    tags: string[];
 };
 
 export type ChecklistItem = {
@@ -151,4 +152,24 @@ export async function deleteChecklistItem(itemId: string): Promise<void> {
     if (!res.ok) {
         throw new Error('Error al eliminar checklist item');
     }
+}
+
+export async function updateIdeaTags(
+    id: string,
+    tags: string[],
+): Promise<string[]> {
+    const res = await fetch(`${BASE_URL}/notes/${id}/tags`, {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ tags }),
+    });
+
+    if (!res.ok) {
+        throw new Error("Error al actualizar tags");
+    }
+
+    const data = await res.json();
+    return data.tags;
 }

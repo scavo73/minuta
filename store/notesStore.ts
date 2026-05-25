@@ -7,6 +7,7 @@ import type { AnyNote, IdeaNote, Note, Task } from "../types";
 import {
   deleteItem as deleteRemoteItem,
   getItems,
+  updateIdeaTags,
   updateItem as updateRemoteItem,
   type MinutaItem,
 } from "../lib/api";
@@ -42,17 +43,19 @@ interface NotesStore {
   deleteIdea: (id: string) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
 
+  markAllTasksDone: () => Promise<void>;
+  deleteCompletedTasks: () => Promise<void>;
+  deleteAllTasks: () => Promise<void>;
+
+  deleteAllNotes: () => Promise<void>;
+  deleteAllIdeas: () => Promise<void>;
+
   archiveNote: (id: string) => void;
   archiveIdea: (id: string) => void;
   markAllNotes: () => void;
   markAllIdeas: () => void;
   archiveAllNotes: () => void;
   archiveAllIdeas: () => void;
-  deleteAllNotes: () => void;
-  deleteAllIdeas: () => void;
-  markAllTasksDone: () => void;
-  deleteCompletedTasks: () => void;
-  deleteAllTasks: () => void;
   convertIdeaToTask: (id: string) => void;
   toggleTask: (id: string) => Promise<void>;
   getItemById: (id: string) => AnyNote | undefined;
@@ -87,7 +90,7 @@ function mapRemoteIdeaToLocal(item: MinutaItem): IdeaNote {
     id: item.id,
     title: item.title,
     color: item.color ?? "#FFCC00",
-    tags: [],
+    tags: item.tags ?? [],
     createdAt: new Date(item.created_at),
     updatedAt: new Date(item.updated_at),
   };
@@ -191,6 +194,9 @@ export const useNotesStore = create<NotesStore>()(
             title: updates.title,
             color: updates.color,
           });
+
+          await updateIdeaTags(id, updates.tags ?? []);
+
 
           await get().fetchItems();
         } catch (error) {
@@ -315,25 +321,98 @@ export const useNotesStore = create<NotesStore>()(
           })),
         })),
 
-      deleteAllNotes: () => set({ notes: [] }),
+      deleteAllNotes: async () => {
+        try {
+          const notes = get().notes;
 
-      deleteAllIdeas: () => set({ ideas: [] }),
+          await Promise.all(notes.map((note) => deleteRemoteItem(note.id)));
 
-      markAllTasksDone: () =>
-        set((state) => ({
-          tasks: state.tasks.map((task) => ({
-            ...task,
-            isCompleted: true,
-            updatedAt: new Date(),
-          })),
-        })),
+          await get().fetchItems();
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error
+                ? error.message
+                : "Error al eliminar todas las notas",
+          });
+        }
+      },
 
-      deleteCompletedTasks: () =>
-        set((state) => ({
-          tasks: state.tasks.filter((task) => !task.isCompleted),
-        })),
+      deleteAllIdeas: async () => {
+        try {
+          const ideas = get().ideas;
 
-      deleteAllTasks: () => set({ tasks: [] }),
+          await Promise.all(ideas.map((idea) => deleteRemoteItem(idea.id)));
+
+          await get().fetchItems();
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error
+                ? error.message
+                : "Error al eliminar todas las ideas",
+          });
+        }
+      },
+
+      markAllTasksDone: async () => {
+        try {
+          const pendingTasks = get().tasks.filter((task) => !task.isCompleted);
+
+          await Promise.all(
+            pendingTasks.map((task) =>
+              updateRemoteItem(task.id, {
+                is_completed: true,
+              }),
+            ),
+          );
+
+          await get().fetchItems();
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error
+                ? error.message
+                : "Error al completar las tareas",
+          });
+        }
+      },
+
+      deleteCompletedTasks: async () => {
+        try {
+          const completedTasks = get().tasks.filter((task) => task.isCompleted);
+
+          await Promise.all(
+            completedTasks.map((task) => deleteRemoteItem(task.id)),
+          );
+
+          await get().fetchItems();
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error
+                ? error.message
+                : "Error al eliminar las tareas completadas",
+          });
+        }
+      },
+
+      deleteAllTasks: async () => {
+        try {
+          const tasks = get().tasks;
+
+          await Promise.all(tasks.map((task) => deleteRemoteItem(task.id)));
+
+          await get().fetchItems();
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error
+                ? error.message
+                : "Error al eliminar todas las tareas",
+          });
+        }
+      },
 
       convertIdeaToTask: (id) =>
         set((state) => {
