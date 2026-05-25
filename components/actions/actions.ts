@@ -2,6 +2,7 @@ export type ItemAction =
   | "edit"
   | "delete"
   | "archive"
+  | "unarchive"
   | "markAll"
   | "deleteAll"
   | "deleteCompleted"

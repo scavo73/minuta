@@ -8,6 +8,7 @@ import { showDeleteConfirm } from "../../components/actions/DeleteConfirmDialog"
 import { SectionActionsMenu } from "../../components/actions/SectionActionsMenu";
 import { SwipeableItemCard } from "../../components/actions/SwipeableItemCard";
 import type { ItemAction } from "../../components/actions/actions";
+import { ArchivedRow } from "../../components/items/ArchivedRow";
 import { NoteCard } from "../../components/items/NoteCard";
 import { spacing, typography } from "../../constants/theme";
 import { useMinutaTheme } from "../../constants/useMinutaTheme";
@@ -28,6 +29,7 @@ export default function NotasScreen() {
   const deleteNote = useNotesStore((state) => state.deleteNote);
   const normalizedQuery = normalizeSearch(searchQuery);
   const visibleNotes = notes.filter((note) => !note.isArchived);
+  const archivedNotes = notes.filter((note) => note.isArchived);
   const filteredNotes = visibleNotes.filter((note) => {
     if (!normalizedQuery) return true;
 
@@ -99,12 +101,17 @@ export default function NotasScreen() {
                 ]}
                 value={searchQuery}
               />
+              {archivedNotes.length > 0 ? (
+                <ArchivedRow onPress={() => router.push("/archived/notas")} />
+              ) : null}
             </View>
           }
           ListEmptyComponent={
             <Text style={[styles.empty, { color: theme.mutedText }]}>
               {visibleNotes.length === 0
-                ? "Todavía no hay notas."
+                ? archivedNotes.length > 0
+                  ? "No hay notas activas."
+                  : "Todavía no hay notas."
                 : "No hay resultados para esta búsqueda."}
             </Text>
           }

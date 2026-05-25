@@ -8,6 +8,7 @@ import { showDeleteConfirm } from "../../components/actions/DeleteConfirmDialog"
 import { SectionActionsMenu } from "../../components/actions/SectionActionsMenu";
 import { SwipeableItemCard } from "../../components/actions/SwipeableItemCard";
 import type { ItemAction } from "../../components/actions/actions";
+import { ArchivedRow } from "../../components/items/ArchivedRow";
 import { IdeaCard } from "../../components/items/IdeaCard";
 import { spacing, typography } from "../../constants/theme";
 import { useMinutaTheme } from "../../constants/useMinutaTheme";
@@ -28,6 +29,7 @@ export default function IdeasScreen() {
   const deleteIdea = useNotesStore((state) => state.deleteIdea);
   const normalizedQuery = normalizeSearch(searchQuery);
   const visibleIdeas = ideas.filter((idea) => !idea.isArchived);
+  const archivedIdeas = ideas.filter((idea) => idea.isArchived);
   const filteredIdeas = visibleIdeas.filter((idea) => {
     if (!normalizedQuery) return true;
 
@@ -99,12 +101,17 @@ export default function IdeasScreen() {
                 ]}
                 value={searchQuery}
               />
+              {archivedIdeas.length > 0 ? (
+                <ArchivedRow onPress={() => router.push("/archived/ideas")} />
+              ) : null}
             </View>
           }
           ListEmptyComponent={
             <Text style={[styles.empty, { color: theme.mutedText }]}>
               {visibleIdeas.length === 0
-                ? "Todavía no hay ideas."
+                ? archivedIdeas.length > 0
+                  ? "No hay ideas activas."
+                  : "Todavía no hay ideas."
                 : "No hay resultados para esta búsqueda."}
             </Text>
           }

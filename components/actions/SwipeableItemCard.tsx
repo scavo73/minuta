@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { PropsWithChildren, useEffect, useRef } from "react";
+import type { ComponentProps, PropsWithChildren } from "react";
+import { useEffect, useRef } from "react";
 import {
   Animated,
   PanResponder,
@@ -16,6 +17,8 @@ import { radius, spacing, typography } from "../../constants/theme";
 interface SwipeableItemCardProps {
   onArchive: () => void;
   onDelete: () => void;
+  archiveIcon?: ComponentProps<typeof Ionicons>["name"];
+  archiveLabel?: string;
   onSwipeEnd?: () => void;
   onSwipeStart?: () => void;
 }
@@ -26,6 +29,8 @@ const openThreshold = actionWidth;
 
 export function SwipeableItemCard({
   children,
+  archiveIcon = "archive-outline",
+  archiveLabel = "Archivar",
   onArchive,
   onDelete,
   onSwipeEnd,
@@ -155,8 +160,8 @@ export function SwipeableItemCard({
           }}
           style={[styles.action, styles.archiveAction]}
         >
-          <Ionicons color="#FFFFFF" name="archive-outline" size={20} />
-          <Text style={styles.actionText}>Archivar</Text>
+          <Ionicons color="#FFFFFF" name={archiveIcon} size={20} />
+          <Text style={styles.actionText}>{archiveLabel}</Text>
         </Pressable>
         <Pressable
           onPress={() => {

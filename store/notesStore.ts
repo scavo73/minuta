@@ -52,10 +52,16 @@ interface NotesStore {
 
   archiveNote: (id: string) => void;
   archiveIdea: (id: string) => void;
+  unarchiveNote: (id: string) => void;
+  unarchiveIdea: (id: string) => void;
   markAllNotes: () => void;
   markAllIdeas: () => void;
   archiveAllNotes: () => void;
   archiveAllIdeas: () => void;
+  unarchiveAllNotes: () => void;
+  unarchiveAllIdeas: () => void;
+  deleteAllArchivedNotes: () => Promise<void>;
+  deleteAllArchivedIdeas: () => Promise<void>;
   convertIdeaToTask: (id: string) => void;
   toggleTask: (id: string) => Promise<void>;
   getItemById: (id: string) => AnyNote | undefined;
@@ -197,7 +203,6 @@ export const useNotesStore = create<NotesStore>()(
 
           await updateIdeaTags(id, updates.tags ?? []);
 
-
           await get().fetchItems();
         } catch (error) {
           set({
@@ -265,10 +270,10 @@ export const useNotesStore = create<NotesStore>()(
             note.id !== id
               ? note
               : {
-                ...note,
-                isArchived: true,
-                updatedAt: new Date(),
-              },
+                  ...note,
+                  isArchived: true,
+                  updatedAt: new Date(),
+                },
           ),
         })),
 
@@ -278,10 +283,36 @@ export const useNotesStore = create<NotesStore>()(
             idea.id !== id
               ? idea
               : {
-                ...idea,
-                isArchived: true,
-                updatedAt: new Date(),
-              },
+                  ...idea,
+                  isArchived: true,
+                  updatedAt: new Date(),
+                },
+          ),
+        })),
+
+      unarchiveNote: (id) =>
+        set((state) => ({
+          notes: state.notes.map((note) =>
+            note.id !== id
+              ? note
+              : {
+                  ...note,
+                  isArchived: false,
+                  updatedAt: new Date(),
+                },
+          ),
+        })),
+
+      unarchiveIdea: (id) =>
+        set((state) => ({
+          ideas: state.ideas.map((idea) =>
+            idea.id !== id
+              ? idea
+              : {
+                  ...idea,
+                  isArchived: false,
+                  updatedAt: new Date(),
+                },
           ),
         })),
 
@@ -321,6 +352,32 @@ export const useNotesStore = create<NotesStore>()(
           })),
         })),
 
+      unarchiveAllNotes: () =>
+        set((state) => ({
+          notes: state.notes.map((note) =>
+            note.isArchived
+              ? {
+                  ...note,
+                  isArchived: false,
+                  updatedAt: new Date(),
+                }
+              : note,
+          ),
+        })),
+
+      unarchiveAllIdeas: () =>
+        set((state) => ({
+          ideas: state.ideas.map((idea) =>
+            idea.isArchived
+              ? {
+                  ...idea,
+                  isArchived: false,
+                  updatedAt: new Date(),
+                }
+              : idea,
+          ),
+        })),
+
       deleteAllNotes: async () => {
         try {
           const notes = get().notes;
@@ -351,6 +408,50 @@ export const useNotesStore = create<NotesStore>()(
               error instanceof Error
                 ? error.message
                 : "Error al eliminar todas las ideas",
+          });
+        }
+      },
+
+      deleteAllArchivedNotes: async () => {
+        try {
+          const archivedNotes = get().notes.filter((note) => note.isArchived);
+
+          await Promise.all(
+            archivedNotes.map((note) => deleteRemoteItem(note.id)),
+          );
+
+          set((state) => ({
+            notes: state.notes.filter((note) => !note.isArchived),
+            error: null,
+          }));
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error
+                ? error.message
+                : "Error al eliminar las notas archivadas",
+          });
+        }
+      },
+
+      deleteAllArchivedIdeas: async () => {
+        try {
+          const archivedIdeas = get().ideas.filter((idea) => idea.isArchived);
+
+          await Promise.all(
+            archivedIdeas.map((idea) => deleteRemoteItem(idea.id)),
+          );
+
+          set((state) => ({
+            ideas: state.ideas.filter((idea) => !idea.isArchived),
+            error: null,
+          }));
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error
+                ? error.message
+                : "Error al eliminar las ideas archivadas",
           });
         }
       },
@@ -427,10 +528,10 @@ export const useNotesStore = create<NotesStore>()(
               item.id !== id
                 ? item
                 : {
-                  ...item,
-                  isArchived: true,
-                  updatedAt: now,
-                },
+                    ...item,
+                    isArchived: true,
+                    updatedAt: now,
+                  },
             ),
             tasks: [
               {
