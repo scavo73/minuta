@@ -1,10 +1,17 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { EditItemForm } from "../../components/edit/EditItemForm";
 import { spacing, typography } from "../../constants/theme";
 import { useMinutaTheme } from "../../constants/useMinutaTheme";
+import { getUniqueIdeaTags } from "../../lib/tags";
 import { useNotesStore } from "../../store/notesStore";
 import { isIdeaNote, isTask, isTextNote } from "../../types";
 
@@ -15,7 +22,9 @@ export default function EditItemScreen() {
   const getItemById = useNotesStore((state) => state.getItemById);
   const updateIdea = useNotesStore((state) => state.updateIdea);
   const updateNote = useNotesStore((state) => state.updateNote);
+  const ideas = useNotesStore((state) => state.ideas);
   const item = itemId ? getItemById(itemId) : undefined;
+  const availableTags = getUniqueIdeaTags(ideas);
 
   if (!item || isTask(item)) {
     return (
@@ -43,6 +52,7 @@ export default function EditItemScreen() {
         style={styles.keyboardView}
       >
         <EditItemForm
+          availableTags={availableTags}
           item={item}
           kind={isTextNote(item) ? "note" : "idea"}
           onCancel={() => router.back()}

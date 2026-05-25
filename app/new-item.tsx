@@ -1,6 +1,6 @@
-import * as ImagePicker from 'expo-image-picker';
-import { router } from 'expo-router';
-import { useState } from 'react';
+import * as ImagePicker from "expo-image-picker";
+import { router } from "expo-router";
+import { useState } from "react";
 import {
   Image,
   KeyboardAvoidingView,
@@ -11,45 +11,48 @@ import {
   Text,
   TextInput,
   View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { z } from 'zod';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { z } from "zod";
 
-import { radius, spacing, typography } from '../constants/theme';
-import { useMinutaTheme } from '../constants/useMinutaTheme';
-import { useNotesStore } from '../store/notesStore';
-import { createItem, updateIdeaTags } from '../lib/api';
-import type { NoteKind } from '../types';
-
-
+import { ManageTagsButton } from "../components/ideas/ManageTagsButton";
+import { TagSuggestions } from "../components/ideas/TagSuggestions";
+import { radius, spacing, typography } from "../constants/theme";
+import { useMinutaTheme } from "../constants/useMinutaTheme";
+import { createItem, updateIdeaTags } from "../lib/api";
+import { getUniqueIdeaTags, parseTags } from "../lib/tags";
+import { useNotesStore } from "../store/notesStore";
+import type { NoteKind } from "../types";
 
 const noteSchema = z.object({
-  title: z.string().min(3, 'El título debe tener al menos 3 caracteres'),
-  content: z.string().min(1, 'El contenido no puede estar vacío'),
+  title: z.string().min(3, "El título debe tener al menos 3 caracteres"),
+  content: z.string().min(1, "El contenido no puede estar vacío"),
   imageUri: z.string().optional(),
 });
 
 const taskSchema = z.object({
-  text: z.string().min(1, 'La tarea no puede estar vacía'),
+  text: z.string().min(1, "La tarea no puede estar vacía"),
 });
 
 const ideaSchema = z.object({
-  title: z.string().min(3, 'El título debe tener al menos 3 caracteres'),
+  title: z.string().min(3, "El título debe tener al menos 3 caracteres"),
   tags: z.array(z.string()).optional(),
   color: z.string().min(1),
 });
 
 const ideaColors = [
-  '#FDE68A', // amarillo
-  '#7DD3FC', // azul
-  '#FCA5A5', // rojo
-  '#86EFAC', // verde
-  '#FECACA', // coral
-  '#A7F3D0', // menta
-  '#FEF3C7', // crema
+  "#FDE68A", // amarillo
+  "#7DD3FC", // azul
+  "#FCA5A5", // rojo
+  "#86EFAC", // verde
+  "#FECACA", // coral
+  "#A7F3D0", // menta
+  "#FEF3C7", // crema
 ];
 
-type FormErrors = Partial<Record<'title' | 'content' | 'text' | 'color', string>>;
+type FormErrors = Partial<
+  Record<"title" | "content" | "text" | "color", string>
+>;
 
 function getValidationErrors(error: z.ZodError): FormErrors {
   return error.issues.reduce<FormErrors>((errors, issue) => {
@@ -65,16 +68,19 @@ function getValidationErrors(error: z.ZodError): FormErrors {
 
 export default function NuevaNotaScreen() {
   const { theme } = useMinutaTheme();
+  const ideas = useNotesStore((state) => state.ideas);
   const fetchItems = useNotesStore((state) => state.fetchItems);
-  const [kind, setKind] = useState<NoteKind>('note');
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
+  const [kind, setKind] = useState<NoteKind>("note");
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
   const [imageUri, setImageUri] = useState<string | undefined>();
-  const [taskText, setTaskText] = useState('');
-  const [tagsText, setTagsText] = useState('');
+  const [taskText, setTaskText] = useState("");
+  const [tagsText, setTagsText] = useState("");
   const [color, setColor] = useState(ideaColors[0]);
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const availableTags = getUniqueIdeaTags(ideas);
+  const selectedTags = parseTags(tagsText);
 
   const pickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -85,7 +91,7 @@ export default function NuevaNotaScreen() {
 
     const result = await ImagePicker.launchImageLibraryAsync({
       allowsEditing: false,
-      mediaTypes: ['images'],
+      mediaTypes: ["images"],
       quality: 0.8,
     });
 
@@ -101,7 +107,7 @@ export default function NuevaNotaScreen() {
       setIsSubmitting(true);
       setErrors({});
 
-      if (kind === 'note') {
+      if (kind === "note") {
         const result = noteSchema.safeParse({
           title: title.trim(),
           content: content.trim(),
@@ -115,9 +121,9 @@ export default function NuevaNotaScreen() {
 
         await createItem({
           title: result.data.title,
-          type: 'note',
+          type: "note",
           content: result.data.content,
-          image_url: result.data.imageUri?.startsWith('http')
+          image_url: result.data.imageUri?.startsWith("http")
             ? result.data.imageUri
             : undefined,
         });
@@ -127,7 +133,7 @@ export default function NuevaNotaScreen() {
         return;
       }
 
-      if (kind === 'task') {
+      if (kind === "task") {
         const result = taskSchema.safeParse({
           text: taskText.trim(),
         });
@@ -139,7 +145,7 @@ export default function NuevaNotaScreen() {
 
         await createItem({
           title: result.data.text,
-          type: 'checklist',
+          type: "checklist",
           content: result.data.text,
         });
 
@@ -148,10 +154,7 @@ export default function NuevaNotaScreen() {
         return;
       }
 
-      const tags = tagsText
-        .split(',')
-        .map((tag) => tag.trim())
-        .filter(Boolean);
+      const tags = parseTags(tagsText);
 
       const result = ideaSchema.safeParse({
         title: title.trim(),
@@ -166,7 +169,7 @@ export default function NuevaNotaScreen() {
 
       const idea = await createItem({
         title: result.data.title,
-        type: 'idea',
+        type: "idea",
         color: result.data.color,
       });
 
@@ -176,7 +179,7 @@ export default function NuevaNotaScreen() {
       router.back();
     } catch {
       setErrors({
-        title: 'No se pudo guardar. Revisa la conexión con la API.',
+        title: "No se pudo guardar. Revisa la conexión con la API.",
       });
     } finally {
       setIsSubmitting(false);
@@ -184,9 +187,11 @@ export default function NuevaNotaScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: theme.background }]}>
+    <SafeAreaView
+      style={[styles.screen, { backgroundColor: theme.background }]}
+    >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.keyboardView}
       >
         <ScrollView contentContainerStyle={styles.content}>
@@ -204,9 +209,9 @@ export default function NuevaNotaScreen() {
 
           <View style={styles.segmentedControl}>
             {[
-              { label: 'Nota', value: 'note' },
-              { label: 'Tarea', value: 'task' },
-              { label: 'Idea', value: 'idea' },
+              { label: "Nota", value: "note" },
+              { label: "Tarea", value: "task" },
+              { label: "Idea", value: "idea" },
             ].map((option) => {
               const isSelected = kind === option.value;
 
@@ -229,7 +234,7 @@ export default function NuevaNotaScreen() {
                   <Text
                     style={[
                       styles.segmentText,
-                      { color: isSelected ? '#FFFFFF' : theme.text },
+                      { color: isSelected ? "#FFFFFF" : theme.text },
                     ]}
                   >
                     {option.label}
@@ -239,7 +244,7 @@ export default function NuevaNotaScreen() {
             })}
           </View>
 
-          {kind !== 'task' ? (
+          {kind !== "task" ? (
             <View style={styles.field}>
               <Text style={[styles.label, { color: theme.text }]}>Título</Text>
               <TextInput
@@ -262,7 +267,7 @@ export default function NuevaNotaScreen() {
             </View>
           ) : null}
 
-          {kind === 'note' ? (
+          {kind === "note" ? (
             <View style={styles.field}>
               <Text style={[styles.label, { color: theme.text }]}>
                 Contenido
@@ -290,9 +295,14 @@ export default function NuevaNotaScreen() {
               <View style={styles.imageActions}>
                 <Pressable
                   onPress={pickImage}
-                  style={[styles.secondaryButton, { backgroundColor: theme.surface }]}
+                  style={[
+                    styles.secondaryButton,
+                    { backgroundColor: theme.surface },
+                  ]}
                 >
-                  <Text style={[styles.secondaryButtonText, { color: theme.text }]}>
+                  <Text
+                    style={[styles.secondaryButtonText, { color: theme.text }]}
+                  >
                     Añadir imagen
                   </Text>
                 </Pressable>
@@ -305,7 +315,10 @@ export default function NuevaNotaScreen() {
                     ]}
                   >
                     <Text
-                      style={[styles.secondaryButtonText, { color: theme.text }]}
+                      style={[
+                        styles.secondaryButtonText,
+                        { color: theme.text },
+                      ]}
                     >
                       Quitar imagen
                     </Text>
@@ -322,7 +335,7 @@ export default function NuevaNotaScreen() {
             </View>
           ) : null}
 
-          {kind === 'task' ? (
+          {kind === "task" ? (
             <View style={styles.field}>
               <Text style={[styles.label, { color: theme.text }]}>Tarea</Text>
               <TextInput
@@ -341,11 +354,13 @@ export default function NuevaNotaScreen() {
                 textAlignVertical="top"
                 value={taskText}
               />
-              {errors.text ? <Text style={styles.error}>{errors.text}</Text> : null}
+              {errors.text ? (
+                <Text style={styles.error}>{errors.text}</Text>
+              ) : null}
             </View>
           ) : null}
 
-          {kind === 'idea' ? (
+          {kind === "idea" ? (
             <>
               <View style={styles.field}>
                 <Text style={[styles.label, { color: theme.text }]}>
@@ -365,6 +380,16 @@ export default function NuevaNotaScreen() {
                   ]}
                   value={tagsText}
                 />
+                <ManageTagsButton
+                  onPress={() => {
+                    // TODO: navegar a la pantalla de gestión de tags.
+                  }}
+                />
+                <TagSuggestions
+                  availableTags={availableTags}
+                  selectedTags={selectedTags}
+                  onChange={(tags) => setTagsText(tags.join(", "))}
+                />
               </View>
               <View style={styles.field}>
                 <Text style={[styles.label, { color: theme.text }]}>Color</Text>
@@ -379,7 +404,7 @@ export default function NuevaNotaScreen() {
                         {
                           backgroundColor: option,
                           borderColor:
-                            color === option ? theme.text : 'transparent',
+                            color === option ? theme.text : "transparent",
                         },
                       ]}
                     />
@@ -397,7 +422,7 @@ export default function NuevaNotaScreen() {
             style={[styles.submitButton, { backgroundColor: theme.primary }]}
           >
             <Text style={styles.submitText}>
-              {isSubmitting ? 'Guardando...' : 'Guardar'}
+              {isSubmitting ? "Guardando..." : "Guardar"}
             </Text>
           </Pressable>
         </ScrollView>
@@ -419,12 +444,12 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: typography.title,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   topBar: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
   closeButton: {
     borderRadius: radius.md,
@@ -433,10 +458,10 @@ const styles = StyleSheet.create({
   },
   closeButtonText: {
     fontSize: typography.body,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   segmentedControl: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: spacing.sm,
   },
   segment: {
@@ -446,15 +471,15 @@ const styles = StyleSheet.create({
   },
   segmentText: {
     fontSize: typography.body,
-    fontWeight: '700',
-    textAlign: 'center',
+    fontWeight: "700",
+    textAlign: "center",
   },
   field: {
     gap: spacing.xs,
   },
   label: {
     fontSize: typography.body,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   input: {
     borderRadius: radius.md,
@@ -466,12 +491,12 @@ const styles = StyleSheet.create({
     minHeight: 140,
   },
   error: {
-    color: '#DC2626',
+    color: "#DC2626",
     fontSize: typography.small,
   },
   imageActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: spacing.sm,
     marginTop: spacing.sm,
   },
@@ -482,16 +507,16 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: {
     fontSize: typography.body,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   imagePreview: {
     borderRadius: radius.md,
     height: 150,
     marginTop: spacing.sm,
-    width: '100%',
+    width: "100%",
   },
   swatches: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: spacing.sm,
   },
   swatch: {
@@ -505,9 +530,9 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   submitText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: typography.body,
-    fontWeight: '700',
-    textAlign: 'center',
+    fontWeight: "700",
+    textAlign: "center",
   },
 });

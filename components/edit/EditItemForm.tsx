@@ -10,8 +10,11 @@ import {
   View,
 } from "react-native";
 
+import { ManageTagsButton } from "../ideas/ManageTagsButton";
+import { TagSuggestions } from "../ideas/TagSuggestions";
 import { radius, spacing, typography } from "../../constants/theme";
 import { useMinutaTheme } from "../../constants/useMinutaTheme";
+import { parseTags } from "../../lib/tags";
 import type { IdeaNote, Note } from "../../types";
 
 type EditableItem = Note | IdeaNote;
@@ -33,6 +36,7 @@ type EditItemValues =
 interface EditItemFormProps {
   item: EditableItem;
   kind: "note" | "idea";
+  availableTags?: string[];
   onCancel: () => void;
   onSave: (values: EditItemValues) => void;
 }
@@ -62,6 +66,7 @@ function getInitialColor(item: EditableItem) {
 }
 
 export function EditItemForm({
+  availableTags = [],
   item,
   kind,
   onCancel,
@@ -76,6 +81,7 @@ export function EditItemForm({
   const [tagsText, setTagsText] = useState(getInitialTags(item));
   const [color, setColor] = useState(getInitialColor(item));
   const [errors, setErrors] = useState<FormErrors>({});
+  const selectedTags = parseTags(tagsText);
 
   const pickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -128,10 +134,7 @@ export function EditItemForm({
     onSave({
       kind: "idea",
       title: nextTitle,
-      tags: tagsText
-        .split(",")
-        .map((tag) => tag.trim())
-        .filter(Boolean),
+      tags: parseTags(tagsText),
       color,
     });
   };
@@ -202,9 +205,7 @@ export function EditItemForm({
                 { backgroundColor: theme.surface },
               ]}
             >
-              <Text
-                style={[styles.secondaryButtonText, { color: theme.text }]}
-              >
+              <Text style={[styles.secondaryButtonText, { color: theme.text }]}>
                 Cambiar imagen
               </Text>
             </Pressable>
@@ -237,9 +238,7 @@ export function EditItemForm({
       {kind === "idea" ? (
         <>
           <View style={styles.field}>
-            <Text style={[styles.label, { color: theme.text }]}>
-              Etiquetas
-            </Text>
+            <Text style={[styles.label, { color: theme.text }]}>Etiquetas</Text>
             <TextInput
               onChangeText={setTagsText}
               placeholder="producto, ideas, casa"
@@ -254,6 +253,16 @@ export function EditItemForm({
               ]}
               value={tagsText}
             />
+            <ManageTagsButton
+              onPress={() => {
+                // TODO: navegar a la pantalla de gestión de tags.
+              }}
+            />
+            <TagSuggestions
+              availableTags={availableTags}
+              selectedTags={selectedTags}
+              onChange={(tags) => setTagsText(tags.join(", "))}
+            />
           </View>
           <View style={styles.field}>
             <Text style={[styles.label, { color: theme.text }]}>Color</Text>
@@ -267,7 +276,8 @@ export function EditItemForm({
                     styles.swatch,
                     {
                       backgroundColor: option,
-                      borderColor: color === option ? theme.text : "transparent",
+                      borderColor:
+                        color === option ? theme.text : "transparent",
                     },
                   ]}
                 />
