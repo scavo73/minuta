@@ -1,6 +1,7 @@
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
+import { useState } from "react";
 import {
   Alert,
   Image,
@@ -18,22 +19,32 @@ import type {
   ActionMenuItem,
   ItemAction,
 } from "../../components/actions/actions";
+import { MoveToFolderModal } from "../../components/folders/MoveToFolderModal";
 import { radius, spacing, typography } from "../../constants/theme";
 import { useMinutaTheme } from "../../constants/useMinutaTheme";
+import { useFoldersStore } from "../../store/foldersStore";
 import { useNotesStore } from "../../store/notesStore";
 import { isIdeaNote, isTask, isTextNote } from "../../types";
 
 export default function ItemDetailScreen() {
   const { theme } = useMinutaTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
   const itemId = Array.isArray(id) ? id[0] : id;
+  const folders = useFoldersStore((state) => state.folders);
   const getItemById = useNotesStore((state) => state.getItemById);
   const archiveIdea = useNotesStore((state) => state.archiveIdea);
   const archiveNote = useNotesStore((state) => state.archiveNote);
   const convertIdeaToTask = useNotesStore((state) => state.convertIdeaToTask);
   const deleteItem = useNotesStore((state) => state.deleteItem);
+  const moveIdeaToFolder = useNotesStore((state) => state.moveIdeaToFolder);
+  const moveNoteToFolder = useNotesStore((state) => state.moveNoteToFolder);
   const toggleTask = useNotesStore((state) => state.toggleTask);
   const item = itemId ? getItemById(itemId) : undefined;
+  const itemFolder =
+    item?.folderId == null
+      ? undefined
+      : folders.find((folder) => folder.id === item.folderId);
 
   const confirmDelete = () => {
     if (!itemId || !item) return;
@@ -92,6 +103,11 @@ export default function ItemDetailScreen() {
       return;
     }
 
+    if (action === "moveToFolder") {
+      setIsMoveModalOpen(true);
+      return;
+    }
+
     if (action === "delete") {
       confirmDelete();
       return;
@@ -112,9 +128,25 @@ export default function ItemDetailScreen() {
     }
   };
 
+  const moveItemToFolder = async (folderId: string | null) => {
+    if (!itemId || !item) return;
+
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    if (isTextNote(item)) {
+      await moveNoteToFolder(itemId, folderId);
+      return;
+    }
+
+    if (isIdeaNote(item)) {
+      await moveIdeaToFolder(itemId, folderId);
+    }
+  };
+
   const detailActions: ActionMenuItem[] = item
     ? [
         { action: "edit", label: "Editar" },
+        { action: "moveToFolder", label: "Mover a carpeta" },
         { action: "archive", label: "Archivar" },
         ...(isIdeaNote(item)
           ? [{ action: "convertToTask" as const, label: "Convertir en tarea" }]
@@ -178,6 +210,26 @@ export default function ItemDetailScreen() {
             <Text style={[styles.title, { color: theme.text }]}>
               {item.title}
             </Text>
+            {itemFolder ? (
+              <View
+                style={[
+                  styles.folderBadge,
+                  { backgroundColor: theme.surface },
+                ]}
+              >
+                <Ionicons
+                  color={theme.mutedText}
+                  name="folder-outline"
+                  size={16}
+                />
+                <Text
+                  numberOfLines={1}
+                  style={[styles.folderBadgeText, { color: theme.mutedText }]}
+                >
+                  {itemFolder.name}
+                </Text>
+              </View>
+            ) : null}
             <Text style={[styles.body, { color: theme.text }]}>
               {item.content}
             </Text>
@@ -211,9 +263,29 @@ export default function ItemDetailScreen() {
             <Text style={[styles.title, { color: theme.text }]}>
               {item.title}
             </Text>
-            <View style={styles.tags}>
-              {(item.tags.length > 0 ? item.tags : ["Sin etiquetas"]).map(
-                (tag) => (
+            {itemFolder ? (
+              <View
+                style={[
+                  styles.folderBadge,
+                  { backgroundColor: theme.surface },
+                ]}
+              >
+                <Ionicons
+                  color={theme.mutedText}
+                  name="folder-outline"
+                  size={16}
+                />
+                <Text
+                  numberOfLines={1}
+                  style={[styles.folderBadgeText, { color: theme.mutedText }]}
+                >
+                  {itemFolder.name}
+                </Text>
+              </View>
+            ) : null}
+            {item.tags.length > 0 ? (
+              <View style={styles.tags}>
+                {item.tags.map((tag) => (
                   <View
                     key={tag}
                     style={[styles.chip, { backgroundColor: theme.surface }]}
@@ -222,9 +294,9 @@ export default function ItemDetailScreen() {
                       {tag}
                     </Text>
                   </View>
-                ),
-              )}
-            </View>
+                ))}
+              </View>
+            ) : null}
           </>
         ) : null}
 
@@ -234,6 +306,15 @@ export default function ItemDetailScreen() {
           </Pressable>
         ) : null}
       </ScrollView>
+      {!isTask(item) ? (
+        <MoveToFolderModal
+          folders={folders}
+          isOpen={isMoveModalOpen}
+          selectedFolderId={item.folderId ?? null}
+          onClose={() => setIsMoveModalOpen(false)}
+          onSelectFolder={moveItemToFolder}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -292,6 +373,21 @@ const styles = StyleSheet.create({
     fontSize: typography.body,
     fontWeight: "700",
     textAlign: "center",
+  },
+  folderBadge: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    borderRadius: radius.sm,
+    flexDirection: "row",
+    gap: spacing.xs,
+    maxWidth: "100%",
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  folderBadgeText: {
+    flexShrink: 1,
+    fontSize: typography.small,
+    fontWeight: "700",
   },
   tags: {
     flexDirection: "row",

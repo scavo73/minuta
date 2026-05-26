@@ -2,8 +2,8 @@ import { FlashList } from "@shopify/flash-list";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Pressable, StyleSheet, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { showDeleteConfirm } from "../../components/actions/DeleteConfirmDialog";
 import { SectionActionsMenu } from "../../components/actions/SectionActionsMenu";
@@ -12,7 +12,9 @@ import type { ItemAction } from "../../components/actions/actions";
 import { FolderChips } from "../../components/folders/FolderChips";
 import { FolderSectionHeader } from "../../components/folders/FolderSectionHeader";
 import { IdeaCard } from "../../components/items/IdeaCard";
-import { radius, spacing, typography } from "../../constants/theme";
+import { EmptyState } from "../../components/layout/EmptyState";
+import { MainScreenLayout } from "../../components/layout/MainScreenLayout";
+import { radius, spacing } from "../../constants/theme";
 import { useMinutaTheme } from "../../constants/useMinutaTheme";
 import {
   ALL_FOLDERS_ID,
@@ -21,6 +23,7 @@ import {
   groupItemsByFolder,
   matchesFolderFilter,
 } from "../../lib/folders";
+import { getArchivedEmptyState } from "../../lib/emptyStates";
 import { useFoldersStore } from "../../store/foldersStore";
 import { useNotesStore } from "../../store/notesStore";
 import type { IdeaNote } from "../../types";
@@ -37,6 +40,7 @@ type ArchivedIdeaListItem =
 
 export default function ArchivedIdeasScreen() {
   const { theme } = useMinutaTheme();
+  const insets = useSafeAreaInsets();
   const [isRowSwiping, setIsRowSwiping] = useState(false);
   const [selectedFolderId, setSelectedFolderId] =
     useState<FolderFilterId>(ALL_FOLDERS_ID);
@@ -54,6 +58,7 @@ export default function ArchivedIdeasScreen() {
     matchesFolderFilter(idea, selectedFolderId),
   );
   const groupedArchivedIdeas = groupItemsByFolder(allArchivedIdeas, folders);
+  const emptyState = getArchivedEmptyState();
   const archivedIdeaListData: ArchivedIdeaListItem[] =
     selectedFolderId === ALL_FOLDERS_ID
       ? [
@@ -62,7 +67,7 @@ export default function ArchivedIdeasScreen() {
                 {
                   id: "section-unfiled",
                   type: "section" as const,
-                  title: "Ideas sin carpeta",
+                  title: "General",
                   count: groupedArchivedIdeas.unfiledItems.length,
                   variant: "unfiled" as const,
                 },
@@ -151,51 +156,53 @@ export default function ArchivedIdeasScreen() {
   };
 
   return (
-    <SafeAreaView
-      style={[styles.screen, { backgroundColor: theme.background }]}
+    <MainScreenLayout
+      actions={
+        <>
+          <Pressable
+            onPress={() => router.back()}
+            style={[styles.backButton, { backgroundColor: theme.surface }]}
+          >
+            <Ionicons color={theme.text} name="arrow-back" size={22} />
+          </Pressable>
+          <SectionActionsMenu
+            items={[
+              { action: "unarchive", label: "Desarchivar todas" },
+              {
+                action: "deleteAll",
+                label: "Borrar todas",
+                destructive: true,
+              },
+            ]}
+            onSelect={handleSectionAction}
+          />
+        </>
+      }
+      chips={
+        <FolderChips
+          context="ideas"
+          folders={folderChips}
+          selectedFolderId={selectedFolderId}
+          onSelectFolder={setSelectedFolderId}
+        />
+      }
+      title="Ideas archivadas"
     >
+      {({ onScroll }) => (
       <FlashList
-        ListHeaderComponent={
-          <View style={styles.header}>
-            <View style={styles.topBar}>
-              <Pressable
-                onPress={() => router.back()}
-                style={[styles.backButton, { backgroundColor: theme.surface }]}
-              >
-                <Ionicons color={theme.text} name="arrow-back" size={22} />
-              </Pressable>
-              <SectionActionsMenu
-                items={[
-                  { action: "unarchive", label: "Desarchivar todas" },
-                  {
-                    action: "deleteAll",
-                    label: "Borrar todas",
-                    destructive: true,
-                  },
-                ]}
-                onSelect={handleSectionAction}
-              />
-            </View>
-            <Text style={[styles.title, { color: theme.text }]}>
-              Ideas archivadas
-            </Text>
-            <FolderChips
-              folders={folderChips}
-              selectedFolderId={selectedFolderId}
-              onSelectFolder={setSelectedFolderId}
-            />
-          </View>
-        }
         data={archivedIdeaListData}
         estimatedItemSize={140}
         keyExtractor={(item) => item.id}
         ListEmptyComponent={
-          <Text style={[styles.empty, { color: theme.mutedText }]}>
-            No hay ideas archivadas.
-          </Text>
+          <EmptyState title={emptyState.title} text={emptyState.text} />
         }
         ItemSeparatorComponent={() => <View style={styles.separator} />}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: insets.bottom + spacing.md },
+        ]}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
         scrollEnabled={!isRowSwiping}
         renderItem={({ item }) =>
           item.type === "section" ? (
@@ -221,41 +228,22 @@ export default function ArchivedIdeasScreen() {
           )
         }
       />
-    </SafeAreaView>
+      )}
+    </MainScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-  },
   content: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
   },
-  header: {
-    gap: spacing.md,
-    marginBottom: spacing.md,
-  },
-  topBar: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
   backButton: {
     alignItems: "center",
-    alignSelf: "flex-start",
     borderRadius: radius.md,
     height: 40,
     justifyContent: "center",
     width: 40,
-  },
-  title: {
-    fontSize: typography.title,
-    fontWeight: "700",
-  },
-  empty: {
-    fontSize: typography.body,
   },
   separator: {
     height: 12,

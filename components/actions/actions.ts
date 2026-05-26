@@ -9,6 +9,7 @@ export type ItemAction =
   | "toggleDone"
   | "convertToTask"
   | "extractTasks"
+  | "moveToFolder"
   | "editFolder"
   | "deleteFolder"
   | "deleteFolderContent"

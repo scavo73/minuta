@@ -1,8 +1,8 @@
 import { FlashList } from "@shopify/flash-list";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { StyleSheet, Text, TextInput, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { StyleSheet, View } from "react-native";
 
 import { showDeleteConfirm } from "../../components/actions/DeleteConfirmDialog";
 import { SectionActionsMenu } from "../../components/actions/SectionActionsMenu";
@@ -14,8 +14,9 @@ import { FolderSectionHeader } from "../../components/folders/FolderSectionHeade
 import { FoldersModal } from "../../components/folders/FoldersModal";
 import { ArchivedRow } from "../../components/items/ArchivedRow";
 import { IdeaCard } from "../../components/items/IdeaCard";
-import { spacing, typography } from "../../constants/theme";
-import { useMinutaTheme } from "../../constants/useMinutaTheme";
+import { EmptyState } from "../../components/layout/EmptyState";
+import { MainScreenLayout } from "../../components/layout/MainScreenLayout";
+import { spacing } from "../../constants/theme";
 import {
   ALL_FOLDERS_ID,
   buildFolderChips,
@@ -24,6 +25,7 @@ import {
   groupItemsByFolder,
   matchesFolderFilter,
 } from "../../lib/folders";
+import { getListEmptyState } from "../../lib/emptyStates";
 import { createFolder } from "../../lib/foldersService";
 import { useFoldersStore } from "../../store/foldersStore";
 import { useCreateContextStore } from "../../store/createContextStore";
@@ -45,7 +47,7 @@ function normalizeSearch(value: string) {
 }
 
 export default function IdeasScreen() {
-  const { theme } = useMinutaTheme();
+  const bottomTabBarHeight = useBottomTabBarHeight();
   const [searchQuery, setSearchQuery] = useState("");
   const [isRowSwiping, setIsRowSwiping] = useState(false);
   const [isFoldersModalOpen, setIsFoldersModalOpen] = useState(false);
@@ -65,6 +67,12 @@ export default function IdeasScreen() {
   const normalizedQuery = normalizeSearch(searchQuery);
   const visibleIdeas = ideas.filter((idea) => !idea.isArchived);
   const archivedIdeas = ideas.filter((idea) => idea.isArchived);
+  const emptyState = getListEmptyState({
+    hasAnyItems: visibleIdeas.length > 0,
+    searchQuery,
+    selectedFolderId,
+    type: "ideas",
+  });
   const folderChips = buildFolderChips(folders, {
     tasks,
     notes: notes.filter((note) => !note.isArchived),
@@ -93,7 +101,7 @@ export default function IdeasScreen() {
                 {
                   id: "section-unfiled",
                   type: "section" as const,
-                  title: "Ideas sin carpeta",
+                  title: "General",
                   count: groupedIdeas.unfiledItems.length,
                   variant: "unfiled" as const,
                 },
@@ -183,68 +191,61 @@ export default function IdeasScreen() {
   };
 
   return (
-    <SafeAreaView
-      style={[styles.screen, { backgroundColor: theme.background }]}
-    >
-      <View style={styles.listWrapper}>
+    <>
+      <MainScreenLayout
+        actions={
+          <>
+            <FolderButton onPress={() => setIsFoldersModalOpen(true)} />
+            <SectionActionsMenu
+              items={[
+                { action: "archive", label: "Archivar todas" },
+                {
+                  action: "deleteAll",
+                  label: "Borrar todas",
+                  destructive: true,
+                },
+              ]}
+              onSelect={handleSectionAction}
+            />
+          </>
+        }
+        chips={
+          <FolderChips
+            context="ideas"
+            folders={folderChips}
+            selectedFolderId={selectedFolderId}
+            onSelectFolder={handleSelectFolder}
+          />
+        }
+        searchPlaceholder="Buscar ideas..."
+        searchValue={searchQuery}
+        title="Ideas"
+        onSearchChange={setSearchQuery}
+      >
+        {({ onScroll }) => (
         <FlashList
           data={ideaListData}
           estimatedItemSize={140}
           keyExtractor={(item) => item.id}
+          keyboardShouldPersistTaps="handled"
           maintainVisibleContentPosition={{ disabled: true }}
           ListHeaderComponent={
-            <View>
-              <View style={styles.sectionHeader}>
-                <Text style={[styles.title, { color: theme.text }]}>Ideas</Text>
-                <View style={styles.headerActions}>
-                  <FolderButton onPress={() => setIsFoldersModalOpen(true)} />
-                  <SectionActionsMenu
-                    items={[
-                      { action: "archive", label: "Archivar todas" },
-                      {
-                        action: "deleteAll",
-                        label: "Borrar todas",
-                        destructive: true,
-                      },
-                    ]}
-                    onSelect={handleSectionAction}
-                  />
-                </View>
-              </View>
-              <TextInput
-                onChangeText={setSearchQuery}
-                placeholder="Buscar ideas..."
-                placeholderTextColor={theme.mutedText}
-                style={[
-                  styles.searchInput,
-                  {
-                    backgroundColor: theme.surface,
-                    color: theme.text,
-                  },
-                ]}
-                value={searchQuery}
-              />
-              <FolderChips
-                folders={folderChips}
-                selectedFolderId={selectedFolderId}
-                onSelectFolder={handleSelectFolder}
-              />
+            <View style={styles.listHeader}>
               {archivedIdeas.length > 0 ? (
                 <ArchivedRow onPress={() => router.push("/archived/ideas")} />
               ) : null}
             </View>
           }
           ListEmptyComponent={
-            <Text style={[styles.empty, { color: theme.mutedText }]}>
-              {visibleIdeas.length === 0
-                ? archivedIdeas.length > 0
-                  ? "No hay ideas activas."
-                  : "Todavía no hay ideas."
-                : "No hay resultados para esta búsqueda."}
-            </Text>
+            <EmptyState title={emptyState.title} text={emptyState.text} />
           }
           ItemSeparatorComponent={() => <View style={styles.separator} />}
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: bottomTabBarHeight + spacing.md },
+          ]}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
           scrollEnabled={!isRowSwiping}
           renderItem={({ item }) =>
             item.type === "section" ? (
@@ -268,52 +269,25 @@ export default function IdeasScreen() {
             )
           }
         />
-      </View>
+        )}
+      </MainScreenLayout>
       <FoldersModal
         folders={folders}
         isOpen={isFoldersModalOpen}
         onClose={() => setIsFoldersModalOpen(false)}
         onCreateFolder={createFolder}
       />
-    </SafeAreaView>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-  },
-  listWrapper: {
-    flex: 1,
-  },
   content: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
   },
-  title: {
-    fontSize: typography.title,
-    fontWeight: "700",
-  },
-  sectionHeader: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  headerActions: {
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  searchInput: {
-    borderRadius: 16,
-    fontSize: typography.body,
-    marginBottom: 12,
-    marginTop: 12,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 12,
-  },
-  empty: {
-    fontSize: typography.body,
-    marginTop: spacing.md,
+  listHeader: {
+    gap: spacing.md,
   },
   separator: {
     height: 12,

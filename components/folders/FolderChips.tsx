@@ -1,21 +1,43 @@
 import { ScrollView, StyleSheet } from "react-native";
 
 import { spacing } from "../../constants/theme";
-import type { FolderChipItem, FolderFilterId } from "../../lib/folders";
+import {
+  ALL_FOLDERS_ID,
+  type FolderChipItem,
+  type FolderChipsContext,
+  type FolderFilterId,
+} from "../../lib/folders";
 import { FolderChip } from "./FolderChip";
 
 interface FolderChipsProps {
+  context: FolderChipsContext;
   folders: FolderChipItem[];
   selectedFolderId: FolderFilterId;
   onSelectFolder: (folderId: FolderFilterId) => void;
 }
 
+function getContextTotal(folder: FolderChipItem, context: FolderChipsContext) {
+  if (context === "tasks") return folder.counts.tasks;
+  if (context === "notes") return folder.counts.notes;
+  if (context === "ideas") return folder.counts.ideas;
+
+  return folder.counts.tasks + folder.counts.notes + folder.counts.ideas;
+}
+
 export function FolderChips({
+  context,
   folders,
   onSelectFolder,
   selectedFolderId,
 }: FolderChipsProps) {
-  if (folders.length === 0) {
+  const visibleFolders = folders.filter(
+    (folder) =>
+      folder.id === ALL_FOLDERS_ID ||
+      folder.id === selectedFolderId ||
+      getContextTotal(folder, context) > 0,
+  );
+
+  if (visibleFolders.length === 0) {
     return null;
   }
 
@@ -25,8 +47,9 @@ export function FolderChips({
       horizontal
       showsHorizontalScrollIndicator={false}
     >
-      {folders.map((folder) => (
+      {visibleFolders.map((folder) => (
         <FolderChip
+          context={context}
           folder={folder}
           isSelected={selectedFolderId === folder.id}
           key={folder.id}

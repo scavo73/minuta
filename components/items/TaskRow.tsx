@@ -24,6 +24,7 @@ interface TaskRowProps {
   isEditing?: boolean;
   editText?: string;
   onChangeEditText?: (value: string) => void;
+  onEditingFocus?: () => void;
   onSwipeStart?: () => void;
   onSwipeEnd?: () => void;
 }
@@ -39,6 +40,7 @@ export function TaskRow({
   isEditing = false,
   editText = task.text,
   onChangeEditText,
+  onEditingFocus,
   onSwipeStart,
   onSwipeEnd,
 }: TaskRowProps) {
@@ -235,6 +237,7 @@ export function TaskRow({
             autoFocus
             multiline
             onChangeText={onChangeEditText}
+            onFocus={onEditingFocus}
             style={[styles.textInput, styles.taskText, taskTextStyle]}
             value={editText}
           />

@@ -105,7 +105,7 @@ function HomeTaskRow({ onComplete, task }: HomeTaskRowProps) {
           }),
           maxHeight: rowHeight.interpolate({
             inputRange: [0, 1],
-            outputRange: [0, 96],
+            outputRange: [0, 90],
           }),
         },
       ]}
@@ -246,7 +246,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     flexDirection: "row",
     gap: spacing.sm,
-    padding: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 14,
   },
   checkbox: {
     alignItems: "center",
@@ -258,12 +259,12 @@ const styles = StyleSheet.create({
   },
   checkmark: {
     color: "#FFFFFF",
-    fontSize: typography.small,
+    fontSize: typography.body,
     fontWeight: "700",
   },
   taskText: {
     flex: 1,
-    fontSize: typography.body,
+    fontSize: typography.body + 1,
     fontWeight: "700",
   },
   emptyRow: {

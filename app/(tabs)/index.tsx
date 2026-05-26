@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback } from "react";
 import {
@@ -6,18 +7,16 @@ import {
   Easing,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import { FolderChips } from "../../components/folders/FolderChips";
 import { HomeTasksWidget } from "../../components/items/HomeTasksWidget";
 import { IdeaCard } from "../../components/items/IdeaCard";
 import { NoteCard } from "../../components/items/NoteCard";
-import { spacing, typography } from "../../constants/theme";
-import { useMinutaTheme } from "../../constants/useMinutaTheme";
+import { EmptyState } from "../../components/layout/EmptyState";
+import { MainScreenLayout } from "../../components/layout/MainScreenLayout";
+import { spacing } from "../../constants/theme";
 import {
   ALL_FOLDERS_ID,
   buildFolderChips,
@@ -25,6 +24,7 @@ import {
   type FolderFilterId,
   matchesFolderFilter,
 } from "../../lib/folders";
+import { getListEmptyState } from "../../lib/emptyStates";
 import { useFoldersStore } from "../../store/foldersStore";
 import { useCreateContextStore } from "../../store/createContextStore";
 import { useNotesStore } from "../../store/notesStore";
@@ -99,7 +99,7 @@ function renderMasonryItem(item: HomeMasonryItem, onPress: () => void) {
 }
 
 export default function HomeScreen() {
-  const { theme } = useMinutaTheme();
+  const bottomTabBarHeight = useBottomTabBarHeight();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -129,6 +129,10 @@ export default function HomeScreen() {
   const filteredTasks = tasks.filter((task) =>
     matchesFolderFilter(task, selectedFolderId),
   );
+  const pendingVisibleTasks = filteredTasks.filter(
+    (task) => !task.isCompleted,
+  );
+  const hasVisibleTasks = pendingVisibleTasks.length > 0;
   const allItems = [
     ...activeNotes.filter((note) =>
       matchesFolderFilter(note, selectedFolderId),
@@ -143,6 +147,12 @@ export default function HomeScreen() {
   const items = allItems.filter((item) =>
     matchesHomeSearch(item, normalizedQuery),
   );
+  const emptyState = getListEmptyState({
+    hasAnyItems: allItems.length > 0,
+    searchQuery,
+    selectedFolderId,
+    type: "home",
+  });
 
   const { left, right } = splitIntoMasonryColumns(items);
 
@@ -206,87 +216,73 @@ export default function HomeScreen() {
   }, [shouldHideWidget, widgetAnim]);
 
   return (
-    <SafeAreaView
-      edges={["top"]}
-      style={[styles.screen, { backgroundColor: theme.background }]}
+    <MainScreenLayout
+      chips={
+        folderChips.length > 1 ? (
+          <FolderChips
+            context="home"
+            folders={folderChips}
+            selectedFolderId={selectedFolderId}
+            onSelectFolder={handleSelectFolder}
+          />
+        ) : null
+      }
+      searchPlaceholder="Buscar notas e ideas..."
+      searchValue={searchQuery}
+      title="Minuta"
+      onSearchBlur={() => setIsSearchFocused(false)}
+      onSearchChange={setSearchQuery}
+      onSearchFocus={() => setIsSearchFocused(true)}
     >
+      {({ onScroll }) => (
       <ScrollView
         contentContainerStyle={[
           styles.content,
-          styles.contentWithTabBarPadding,
+          { paddingBottom: bottomTabBarHeight + spacing.md },
         ]}
         keyboardShouldPersistTaps="handled"
+        onScroll={onScroll}
+        scrollEventThrottle={16}
       >
         <View style={styles.header}>
-          <Text style={[styles.title, { color: theme.text }]}>Minuta</Text>
-
-          <TextInput
-            onBlur={() => setIsSearchFocused(false)}
-            onChangeText={setSearchQuery}
-            onFocus={() => setIsSearchFocused(true)}
-            placeholder="Buscar notas e ideas..."
-            placeholderTextColor={theme.mutedText}
-            style={[
-              styles.searchInput,
-              {
-                backgroundColor: theme.surface,
-                color: theme.text,
-              },
-            ]}
-            value={searchQuery}
-          />
-          {folderChips.length > 1 ? (
-            <View style={styles.folderChipsWrapper}>
-              <FolderChips
-                folders={folderChips}
-                selectedFolderId={selectedFolderId}
-                onSelectFolder={handleSelectFolder}
-              />
-            </View>
-          ) : null}
-
-          <Animated.View
-            pointerEvents={shouldHideWidget ? "none" : "auto"}
-            style={[
-              styles.widgetAnimatedWrapper,
-              widgetHeight > 0
-                ? {
-                    height: animatedWidgetHeight,
-                    marginTop: animatedWidgetMarginTop,
-                    opacity: widgetAnim,
-                  }
-                : {
-                    opacity: widgetAnim,
-                    marginTop: 12,
-                  },
-            ]}
-          >
-            <View
-              onLayout={(event) => {
-                const height = event.nativeEvent.layout.height;
-
-                if (height > 0 && height !== widgetHeight) {
-                  setWidgetHeight(height);
-                }
-              }}
+          {hasVisibleTasks ? (
+            <Animated.View
+              pointerEvents={shouldHideWidget ? "none" : "auto"}
+              style={[
+                styles.widgetAnimatedWrapper,
+                widgetHeight > 0
+                  ? {
+                      height: animatedWidgetHeight,
+                      marginTop: animatedWidgetMarginTop,
+                      opacity: widgetAnim,
+                    }
+                  : {
+                      opacity: widgetAnim,
+                      marginTop: 12,
+                    },
+              ]}
             >
-              <HomeTasksWidget
-                onToggleTask={toggleTask}
-                tasks={filteredTasks}
-              />
-            </View>
-          </Animated.View>
+              <View
+                onLayout={(event) => {
+                  const height = event.nativeEvent.layout.height;
+
+                  if (height > 0 && height !== widgetHeight) {
+                    setWidgetHeight(height);
+                  }
+                }}
+              >
+                <HomeTasksWidget
+                  onToggleTask={toggleTask}
+                  tasks={pendingVisibleTasks}
+                />
+              </View>
+            </Animated.View>
+          ) : null}
         </View>
 
         <View>
-          {allItems.length === 0 ? (
-            <Text style={[styles.empty, { color: theme.mutedText }]}>
-              Todavía no hay notas ni ideas.
-            </Text>
-          ) : items.length === 0 ? (
-            <Text style={[styles.empty, { color: theme.mutedText }]}>
-              No hay resultados para esta búsqueda.
-            </Text>
+          {items.length === 0 ? (
+            <EmptyState title={emptyState.title} text={emptyState.text} />
           ) : (
             <View style={styles.masonryRow}>
               <View style={styles.column}>
@@ -312,56 +308,23 @@ export default function HomeScreen() {
           )}
         </View>
       </ScrollView>
-    </SafeAreaView>
+      )}
+    </MainScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-  },
-
   content: {
     paddingHorizontal: spacing.md,
     paddingTop: spacing.md,
-  },
-
-  contentWithTabBarPadding: {
-    paddingBottom: 120,
   },
 
   header: {
     marginBottom: 12,
   },
 
-  title: {
-    fontSize: typography.title,
-    fontWeight: "700",
-    marginBottom: 12,
-  },
-
-  subtitle: {
-    fontSize: typography.body,
-    lineHeight: 22,
-  },
-
-  searchInput: {
-    borderRadius: 16,
-    fontSize: typography.body,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 12,
-  },
-
-  folderChipsWrapper: {
-    marginTop: 12,
-  },
-
   widgetAnimatedWrapper: {
     overflow: "hidden",
-  },
-
-  empty: {
-    fontSize: typography.body,
   },
 
   masonryRow: {

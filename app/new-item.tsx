@@ -13,6 +13,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { z } from "zod";
 
 import { FolderSelector } from "../components/folders/FolderSelector";
@@ -70,6 +71,7 @@ function getValidationErrors(error: z.ZodError): FormErrors {
 
 export default function NuevaNotaScreen() {
   const { theme } = useMinutaTheme();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
     folderId?: string;
     kind?: NoteKind;
@@ -216,7 +218,13 @@ export default function NuevaNotaScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.keyboardView}
       >
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: insets.bottom + 96 },
+          ]}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={styles.topBar}>
             <Text style={[styles.title, { color: theme.text }]}>Añadir</Text>
             <Pressable

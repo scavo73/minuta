@@ -69,6 +69,8 @@ interface NotesStore {
   deleteFolderNotes: (folderId: string) => Promise<void>;
   deleteFolderTasks: (folderId: string) => Promise<void>;
   deleteFolderWithContent: (folderId: string) => Promise<void>;
+  moveIdeaToFolder: (id: string, folderId: string | null) => Promise<void>;
+  moveNoteToFolder: (id: string, folderId: string | null) => Promise<void>;
   convertIdeaToTask: (id: string) => void;
   toggleTask: (id: string) => Promise<void>;
   getItemById: (id: string) => AnyNote | undefined;
@@ -215,6 +217,24 @@ export const useNotesStore = create<NotesStore>()(
             folderId: updates.folderId ?? null,
           });
 
+          set((state) => ({
+            notes: sortByRecent(
+              state.notes.map((note) =>
+                note.id === id
+                  ? {
+                      ...note,
+                      title: updates.title,
+                      content: updates.content,
+                      imageUri: updates.imageUri,
+                      folderId: updates.folderId ?? null,
+                      updatedAt: new Date(),
+                    }
+                  : note,
+              ),
+            ),
+            error: null,
+          }));
+
           await get().fetchItems();
         } catch (error) {
           set({
@@ -236,6 +256,24 @@ export const useNotesStore = create<NotesStore>()(
             folder_id: updates.folderId ?? null,
             folderId: updates.folderId ?? null,
           });
+
+          set((state) => ({
+            ideas: sortByRecent(
+              state.ideas.map((idea) =>
+                idea.id === id
+                  ? {
+                      ...idea,
+                      title: updates.title,
+                      color: updates.color,
+                      tags: updates.tags ?? [],
+                      folderId: updates.folderId ?? null,
+                      updatedAt: new Date(),
+                    }
+                  : idea,
+              ),
+            ),
+            error: null,
+          }));
 
           await get().fetchItems();
         } catch (error) {
@@ -622,6 +660,54 @@ export const useNotesStore = create<NotesStore>()(
         await get().deleteFolderTasks(folderId);
         await get().deleteFolderNotes(folderId);
         await get().deleteFolderIdeas(folderId);
+      },
+
+      moveIdeaToFolder: async (id, folderId) => {
+        try {
+          await updateRemoteItem(id, {
+            type: "idea",
+            folder_id: folderId,
+            folderId,
+          });
+
+          set((state) => ({
+            ideas: state.ideas.map((idea) =>
+              idea.id === id ? { ...idea, folderId } : idea,
+            ),
+            error: null,
+          }));
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error
+                ? error.message
+                : "Error al mover la idea",
+          });
+        }
+      },
+
+      moveNoteToFolder: async (id, folderId) => {
+        try {
+          await updateRemoteItem(id, {
+            type: "note",
+            folder_id: folderId,
+            folderId,
+          });
+
+          set((state) => ({
+            notes: state.notes.map((note) =>
+              note.id === id ? { ...note, folderId } : note,
+            ),
+            error: null,
+          }));
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error
+                ? error.message
+                : "Error al mover la nota",
+          });
+        }
       },
 
       markAllTasksDone: async () => {

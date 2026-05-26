@@ -3,22 +3,52 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { radius, spacing, typography } from "../../constants/theme";
 import { useMinutaTheme } from "../../constants/useMinutaTheme";
-import type { FolderChipItem } from "../../lib/folders";
+import type { FolderChipItem, FolderChipsContext } from "../../lib/folders";
 
 interface FolderChipProps {
+  context: FolderChipsContext;
   folder: FolderChipItem;
   isSelected?: boolean;
   onPress?: () => void;
 }
 
+function getVisibleCounts(folder: FolderChipItem, context: FolderChipsContext) {
+  if (context === "tasks") {
+    return [{ key: "tasks" as const, count: folder.counts.tasks }];
+  }
+
+  if (context === "notes") {
+    return [{ key: "notes" as const, count: folder.counts.notes }];
+  }
+
+  if (context === "ideas") {
+    return [{ key: "ideas" as const, count: folder.counts.ideas }];
+  }
+
+  return [
+    { key: "tasks" as const, count: folder.counts.tasks },
+    { key: "notes" as const, count: folder.counts.notes },
+    { key: "ideas" as const, count: folder.counts.ideas },
+  ];
+}
+
+const typeIcons = {
+  tasks: "checkbox-outline",
+  notes: "document-text-outline",
+  ideas: "bulb-outline",
+} as const;
+
 export function FolderChip({
+  context,
   folder,
   isSelected = false,
   onPress,
 }: FolderChipProps) {
   const { theme } = useMinutaTheme();
-  const total = folder.counts.tasks + folder.counts.notes + folder.counts.ideas;
+  const visibleCounts = getVisibleCounts(folder, context);
+  const total = visibleCounts.reduce((sum, item) => sum + item.count, 0);
   const Container = onPress ? Pressable : View;
+  const iconColor = isSelected ? "#FFFFFF" : theme.mutedText;
 
   return (
     <Container
@@ -45,27 +75,18 @@ export function FolderChip({
       >
         {total}
       </Text>
-      {folder.counts.tasks > 0 ? (
-        <Ionicons
-          color={isSelected ? "#FFFFFF" : theme.mutedText}
-          name="checkbox-outline"
-          size={13}
-        />
-      ) : null}
-      {folder.counts.notes > 0 ? (
-        <Ionicons
-          color={isSelected ? "#FFFFFF" : theme.mutedText}
-          name="document-text-outline"
-          size={13}
-        />
-      ) : null}
-      {folder.counts.ideas > 0 ? (
-        <Ionicons
-          color={isSelected ? "#FFFFFF" : theme.mutedText}
-          name="bulb-outline"
-          size={13}
-        />
-      ) : null}
+      {visibleCounts.map((item) =>
+        item.count > 0 ? (
+          <View key={item.key} style={styles.typeCount}>
+            <Ionicons color={iconColor} name={typeIcons[item.key]} size={13} />
+            {context === "archived" ? (
+              <Text style={[styles.typeCountText, { color: iconColor }]}>
+                {item.count}
+              </Text>
+            ) : null}
+          </View>
+        ) : null,
+      )}
     </Container>
   );
 }
@@ -87,6 +108,15 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   total: {
+    fontSize: typography.small,
+    fontWeight: "700",
+  },
+  typeCount: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 2,
+  },
+  typeCountText: {
     fontSize: typography.small,
     fontWeight: "700",
   },

@@ -9,6 +9,13 @@ export type FolderFilterId =
   | typeof NO_FOLDER_ID
   | string;
 
+export type FolderChipsContext =
+  | "home"
+  | "tasks"
+  | "notes"
+  | "ideas"
+  | "archived";
+
 type CountableItems = {
   tasks?: Task[];
   notes?: Note[];

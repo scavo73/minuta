@@ -9,6 +9,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ManageTagsButton } from "../ideas/ManageTagsButton";
 import { TagSuggestions } from "../ideas/TagSuggestions";
@@ -79,6 +80,7 @@ export function EditItemForm({
   onSave,
 }: EditItemFormProps) {
   const { theme } = useMinutaTheme();
+  const insets = useSafeAreaInsets();
   const [title, setTitle] = useState(item.title);
   const [content, setContent] = useState(isNote(item) ? item.content : "");
   const [imageUri, setImageUri] = useState(
@@ -149,7 +151,13 @@ export function EditItemForm({
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.content}>
+    <ScrollView
+      contentContainerStyle={[
+        styles.content,
+        { paddingBottom: insets.bottom + 96 },
+      ]}
+      keyboardShouldPersistTaps="handled"
+    >
       <View style={styles.topBar}>
         <Text style={[styles.title, { color: theme.text }]}>
           Editar {kind === "note" ? "nota" : "idea"}
