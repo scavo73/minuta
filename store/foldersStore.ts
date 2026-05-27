@@ -19,18 +19,22 @@ export type Folder = {
   name: string;
   createdAt: number;
   updatedAt?: number;
+  isArchived?: boolean;
 };
 
 interface FoldersStore {
   error: string | null;
+  archivedFolders: Folder[];
   folders: Folder[];
   isLoading: boolean;
   addFolder: (name: string) => Promise<Folder | null>;
+  archiveFolder: (id: string) => Promise<void>;
   createFolder: (name: string) => Promise<Folder | null>;
   deleteFolder: (id: string) => Promise<void>;
   deleteFolderRecord: (id: string) => Promise<void>;
   fetchFolders: () => Promise<void>;
   renameFolder: (id: string, name: string) => Promise<void>;
+  unarchiveFolder: (id: string) => Promise<void>;
   updateFolderName: (id: string, name: string) => Promise<void>;
 }
 
@@ -49,6 +53,7 @@ function normalizeFolder(folder: RemoteFolder): Folder {
     name: folder.name,
     createdAt: parseTime(folder.created_at ?? folder.createdAt),
     updatedAt: updatedAt == null ? undefined : parseTime(updatedAt),
+    isArchived: folder.is_archived ?? folder.isArchived ?? false,
   };
 }
 
@@ -56,18 +61,40 @@ function sortFolders(folders: Folder[]) {
   return [...folders].sort((a, b) => b.createdAt - a.createdAt);
 }
 
+function getRemoteFolderIsArchived(
+  folder: RemoteFolder,
+  fallback = false,
+) {
+  return folder.is_archived ?? folder.isArchived ?? fallback;
+}
+
 export const useFoldersStore = create<FoldersStore>((set, get) => ({
   error: null,
+  archivedFolders: [],
   folders: [],
   isLoading: false,
   addFolder: async (name) => get().createFolder(name),
+  archiveFolder: async (id) => {
+    const folder = get().folders.find((item) => item.id === id);
+
+    if (!folder) return;
+
+    set((state) => ({
+      archivedFolders: sortFolders([
+        { ...folder, isArchived: true, updatedAt: Date.now() },
+        ...state.archivedFolders,
+      ]),
+      error: null,
+      folders: state.folders.filter((item) => item.id !== id),
+    }));
+  },
   createFolder: async (name) => {
     const trimmedName = name.trim();
 
     if (!trimmedName) return null;
 
     if (
-      get().folders.some(
+      [...get().folders, ...get().archivedFolders].some(
         (folder) => folder.name.toLowerCase() === trimmedName.toLowerCase(),
       )
     ) {
@@ -81,7 +108,7 @@ export const useFoldersStore = create<FoldersStore>((set, get) => ({
 
       set((state) => ({
         error: null,
-        folders: sortFolders([folder, ...state.folders]),
+        folders: sortFolders([{ ...folder, isArchived: false }, ...state.folders]),
       }));
 
       return folder;
@@ -102,6 +129,9 @@ export const useFoldersStore = create<FoldersStore>((set, get) => ({
       set((state) => ({
         error: null,
         folders: state.folders.filter((folder) => folder.id !== id),
+        archivedFolders: state.archivedFolders.filter(
+          (folder) => folder.id !== id,
+        ),
       }));
     } catch (error) {
       set({
@@ -115,10 +145,28 @@ export const useFoldersStore = create<FoldersStore>((set, get) => ({
       set({ isLoading: true, error: null });
 
       const folders = await getRemoteFolders();
+      const currentFolders = [...get().folders, ...get().archivedFolders];
+      const normalizedFolders = folders.map((folder) => {
+        const currentFolder = currentFolders.find((item) => item.id === folder.id);
+        const normalizedFolder = normalizeFolder(folder);
+
+        return {
+          ...normalizedFolder,
+          isArchived: getRemoteFolderIsArchived(
+            folder,
+            currentFolder?.isArchived,
+          ),
+        };
+      });
 
       set({
+        archivedFolders: sortFolders(
+          normalizedFolders.filter((folder) => folder.isArchived),
+        ),
         error: null,
-        folders: sortFolders(folders.map(normalizeFolder)),
+        folders: sortFolders(
+          normalizedFolders.filter((folder) => !folder.isArchived),
+        ),
         isLoading: false,
       });
     } catch (error) {
@@ -130,13 +178,27 @@ export const useFoldersStore = create<FoldersStore>((set, get) => ({
     }
   },
   renameFolder: async (id, name) => get().updateFolderName(id, name),
+  unarchiveFolder: async (id) => {
+    const folder = get().archivedFolders.find((item) => item.id === id);
+
+    if (!folder) return;
+
+    set((state) => ({
+      archivedFolders: state.archivedFolders.filter((item) => item.id !== id),
+      error: null,
+      folders: sortFolders([
+        { ...folder, isArchived: false, updatedAt: Date.now() },
+        ...state.folders,
+      ]),
+    }));
+  },
   updateFolderName: async (id, name) => {
     const trimmedName = name.trim();
 
     if (!trimmedName) return;
 
     if (
-      get().folders.some(
+      [...get().folders, ...get().archivedFolders].some(
         (folder) =>
           folder.id !== id &&
           folder.name.toLowerCase() === trimmedName.toLowerCase(),

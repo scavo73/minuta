@@ -979,11 +979,13 @@ export default function NuevaNotaScreen() {
               </>
             ) : null}
 
-            <FormRow label="Carpeta">{renderFolderOptions()}</FormRow>
+            <FormRow label="Carpeta" verticalAlign="start">
+              {renderFolderOptions()}
+            </FormRow>
 
             {kind === "idea" ? (
               <>
-                <FormRow label="Tags">
+                <FormRow label="Tags" verticalAlign="start">
                   <View style={styles.tagsEditor}>
                     {tags.length > 0 ? (
                       tags.map((tag) => (
@@ -1049,7 +1051,7 @@ export default function NuevaNotaScreen() {
                     variant="large"
                   />
                 </View>
-                <FormRow label="Color">
+                <FormRow label="Color" verticalAlign="start">
                   <View style={styles.swatches}>
                     {ideaColors.map((option) => (
                       <Pressable
@@ -1237,12 +1239,12 @@ const styles = StyleSheet.create({
   rowLabel: {
     fontSize: typography.body,
     fontWeight: "600",
-    lineHeight: 24,
+    lineHeight: 34,
   },
   rowColon: {
     fontSize: typography.body,
     fontWeight: "600",
-    lineHeight: 24,
+    lineHeight: 34,
   },
   taskRowLabelText: {
     lineHeight: 34,

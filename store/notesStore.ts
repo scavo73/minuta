@@ -53,8 +53,10 @@ interface NotesStore {
   deleteAllIdeas: () => Promise<void>;
 
   archiveNote: (id: string) => void;
+  archiveTask: (id: string) => void;
   archiveIdea: (id: string) => void;
   unarchiveNote: (id: string) => void;
+  unarchiveTask: (id: string) => void;
   unarchiveIdea: (id: string) => void;
   markAllNotes: () => void;
   markAllIdeas: () => void;
@@ -63,6 +65,7 @@ interface NotesStore {
   unarchiveAllNotes: () => void;
   unarchiveAllIdeas: () => void;
   deleteAllArchivedNotes: () => Promise<void>;
+  deleteAllArchivedTasks: () => Promise<void>;
   deleteAllArchivedIdeas: () => Promise<void>;
   clearFolderItems: (folderId: string) => Promise<void>;
   deleteFolderIdeas: (folderId: string) => Promise<void>;
@@ -101,6 +104,10 @@ function getRemoteUpdatedAt(item: MinutaItem) {
   return new Date(item.updated_at ?? item.updatedAt ?? Date.now());
 }
 
+function getRemoteIsArchived(item: MinutaItem, fallback = false) {
+  return item.is_archived ?? item.isArchived ?? fallback;
+}
+
 function getLocalItemType(item: AnyNote) {
   if ("isCompleted" in item) return "checklist";
   if ("tags" in item) return "idea";
@@ -108,7 +115,7 @@ function getLocalItemType(item: AnyNote) {
   return "note";
 }
 
-function mapRemoteNoteToLocal(item: MinutaItem): Note {
+function mapRemoteNoteToLocal(item: MinutaItem, fallbackIsArchived = false): Note {
   return {
     id: item.id,
     title: item.title,
@@ -117,10 +124,14 @@ function mapRemoteNoteToLocal(item: MinutaItem): Note {
     createdAt: getRemoteCreatedAt(item),
     updatedAt: getRemoteUpdatedAt(item),
     folderId: getRemoteFolderId(item),
+    isArchived: getRemoteIsArchived(item, fallbackIsArchived),
   };
 }
 
-function mapRemoteIdeaToLocal(item: MinutaItem): IdeaNote {
+function mapRemoteIdeaToLocal(
+  item: MinutaItem,
+  fallbackIsArchived = false,
+): IdeaNote {
   return {
     id: item.id,
     title: item.title,
@@ -129,10 +140,14 @@ function mapRemoteIdeaToLocal(item: MinutaItem): IdeaNote {
     createdAt: getRemoteCreatedAt(item),
     updatedAt: getRemoteUpdatedAt(item),
     folderId: getRemoteFolderId(item),
+    isArchived: getRemoteIsArchived(item, fallbackIsArchived),
   };
 }
 
-function mapRemoteChecklistToLocal(item: MinutaItem): Task {
+function mapRemoteChecklistToLocal(
+  item: MinutaItem,
+  fallbackIsArchived = false,
+): Task {
   return {
     id: item.id,
     text: item.text ?? item.content ?? item.title,
@@ -140,6 +155,7 @@ function mapRemoteChecklistToLocal(item: MinutaItem): Task {
     createdAt: getRemoteCreatedAt(item),
     updatedAt: getRemoteUpdatedAt(item),
     folderId: getRemoteFolderId(item),
+    isArchived: getRemoteIsArchived(item, fallbackIsArchived),
   };
 }
 
@@ -161,19 +177,38 @@ export const useNotesStore = create<NotesStore>()(
           });
 
           const items = await getItems();
+          const currentState = get();
 
           set({
             notes: items
               .filter((item) => item.type === "note")
-              .map(mapRemoteNoteToLocal),
+              .map((item) =>
+                mapRemoteNoteToLocal(
+                  item,
+                  currentState.notes.find((note) => note.id === item.id)
+                    ?.isArchived,
+                ),
+              ),
 
             ideas: items
               .filter((item) => item.type === "idea")
-              .map(mapRemoteIdeaToLocal),
+              .map((item) =>
+                mapRemoteIdeaToLocal(
+                  item,
+                  currentState.ideas.find((idea) => idea.id === item.id)
+                    ?.isArchived,
+                ),
+              ),
 
             tasks: items
               .filter((item) => item.type === "checklist")
-              .map(mapRemoteChecklistToLocal),
+              .map((item) =>
+                mapRemoteChecklistToLocal(
+                  item,
+                  currentState.tasks.find((task) => task.id === item.id)
+                    ?.isArchived,
+                ),
+              ),
 
             isLoading: false,
             error: null,
@@ -360,6 +395,19 @@ export const useNotesStore = create<NotesStore>()(
           ),
         })),
 
+      archiveTask: (id) =>
+        set((state) => ({
+          tasks: state.tasks.map((task) =>
+            task.id !== id
+              ? task
+              : {
+                  ...task,
+                  isArchived: true,
+                  updatedAt: new Date(),
+                },
+          ),
+        })),
+
       archiveIdea: (id) =>
         set((state) => ({
           ideas: state.ideas.map((idea) =>
@@ -380,6 +428,19 @@ export const useNotesStore = create<NotesStore>()(
               ? note
               : {
                   ...note,
+                  isArchived: false,
+                  updatedAt: new Date(),
+                },
+          ),
+        })),
+
+      unarchiveTask: (id) =>
+        set((state) => ({
+          tasks: state.tasks.map((task) =>
+            task.id !== id
+              ? task
+              : {
+                  ...task,
                   isArchived: false,
                   updatedAt: new Date(),
                 },
@@ -517,6 +578,28 @@ export const useNotesStore = create<NotesStore>()(
               error instanceof Error
                 ? error.message
                 : "Error al eliminar las notas archivadas",
+          });
+        }
+      },
+
+      deleteAllArchivedTasks: async () => {
+        try {
+          const archivedTasks = get().tasks.filter((task) => task.isArchived);
+
+          await Promise.all(
+            archivedTasks.map((task) => deleteRemoteItem(task.id, "checklist")),
+          );
+
+          set((state) => ({
+            tasks: state.tasks.filter((task) => !task.isArchived),
+            error: null,
+          }));
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error
+                ? error.message
+                : "Error al eliminar las tareas archivadas",
           });
         }
       },
@@ -843,7 +926,7 @@ export const useNotesStore = create<NotesStore>()(
 
         return [
           ...state.notes.filter((note) => !note.isArchived),
-          ...state.tasks,
+          ...state.tasks.filter((task) => !task.isArchived),
           ...state.ideas.filter((idea) => !idea.isArchived),
         ].sort((a, b) => getActivityTime(b) - getActivityTime(a));
       },

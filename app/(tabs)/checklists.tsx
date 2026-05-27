@@ -1,7 +1,7 @@
 import { FlashList, type FlashListRef } from "@shopify/flash-list";
 import { Ionicons } from "@expo/vector-icons";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { useFocusEffect } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Keyboard,
@@ -21,6 +21,7 @@ import { FolderChips } from "../../components/folders/FolderChips";
 import { FolderSelector } from "../../components/folders/FolderSelector";
 import { FolderSectionHeader } from "../../components/folders/FolderSectionHeader";
 import { FoldersModal } from "../../components/folders/FoldersModal";
+import { ArchivedRow } from "../../components/items/ArchivedRow";
 import { TaskRow } from "../../components/items/TaskRow";
 import { EmptyState } from "../../components/layout/EmptyState";
 import { MainScreenLayout } from "../../components/layout/MainScreenLayout";
@@ -72,10 +73,12 @@ export default function ChecklistsScreen() {
   const [selectedFolderId, setSelectedFolderId] =
     useState<FolderFilterId>(ALL_FOLDERS_ID);
   const folders = useFoldersStore((state) => state.folders);
+  const archivedFolders = useFoldersStore((state) => state.archivedFolders);
   const setCreateContext = useCreateContextStore(
     (state) => state.setCreateContext,
   );
   const tasks = useNotesStore((state) => state.tasks);
+  const archiveTask = useNotesStore((state) => state.archiveTask);
   const deleteAllTasks = useNotesStore((state) => state.deleteAllTasks);
   const deleteCompletedTasks = useNotesStore(
     (state) => state.deleteCompletedTasks,
@@ -87,18 +90,20 @@ export default function ChecklistsScreen() {
   const notes = useNotesStore((state) => state.notes);
   const ideas = useNotesStore((state) => state.ideas);
   const normalizedQuery = normalizeSearch(searchQuery);
+  const visibleTasks = tasks.filter((task) => !task.isArchived);
+  const archivedTasks = tasks.filter((task) => task.isArchived);
   const emptyState = getListEmptyState({
-    hasAnyItems: tasks.length > 0,
+    hasAnyItems: visibleTasks.length > 0,
     searchQuery,
     selectedFolderId,
     type: "tasks",
   });
   const folderChips = buildFolderChips(folders, {
-    tasks,
+    tasks: visibleTasks,
     notes: notes.filter((note) => !note.isArchived),
     ideas: ideas.filter((idea) => !idea.isArchived),
   });
-  const searchedTasks = tasks.filter((task) => {
+  const searchedTasks = visibleTasks.filter((task) => {
     if (!normalizedQuery) return true;
 
     return task.text.toLowerCase().includes(normalizedQuery);
@@ -432,6 +437,10 @@ export default function ChecklistsScreen() {
                     onChange={setEditingTaskFolderId}
                   />
                 </View>
+              ) : archivedTasks.length > 0 ? (
+                <View style={styles.listHeader}>
+                  <ArchivedRow onPress={() => router.push("/archived/tareas")} />
+                </View>
               ) : null
             }
             ListEmptyComponent={
@@ -474,6 +483,7 @@ export default function ChecklistsScreen() {
                     editText={editingTaskText}
                     isEditing={editingTaskId === item.task.id}
                     onChangeEditText={setEditingTaskText}
+                    onArchive={archiveTask}
                     onDelete={handleDeleteTask}
                     onEditingFocus={ensureEditingTaskVisible}
                     onPressText={startEditingTask}
@@ -489,6 +499,7 @@ export default function ChecklistsScreen() {
         )}
       </MainScreenLayout>
       <FoldersModal
+        archivedFolders={archivedFolders}
         folders={folders}
         isOpen={isFoldersModalOpen}
         onClose={() => setIsFoldersModalOpen(false)}

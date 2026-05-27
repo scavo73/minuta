@@ -1,5 +1,5 @@
 const BASE_URL =
-    process.env.EXPO_PUBLIC_API_URL ?? "http://192.168.18.34:3000/api";
+    process.env.EXPO_PUBLIC_API_URL ?? "http://192.168.50.70:3000/api";
 
 export type MinutaItemType = "note" | "checklist" | "idea";
 
@@ -10,6 +10,8 @@ export type RemoteFolder = {
     createdAt?: string | number;
     updated_at?: string | number | null;
     updatedAt?: string | number | null;
+    is_archived?: boolean;
+    isArchived?: boolean;
 };
 
 export type MinutaItem = {
@@ -27,6 +29,8 @@ export type MinutaItem = {
     updatedAt?: string | number;
     is_completed?: boolean;
     isCompleted?: boolean;
+    is_archived?: boolean;
+    isArchived?: boolean;
     folder_id?: string | null;
     folderId?: string | null;
     tags?: string[];
@@ -124,7 +128,7 @@ export async function createFolder(data: {
 
 export async function updateFolder(
     id: string,
-    data: { name: string },
+    data: { name?: string; is_archived?: boolean; isArchived?: boolean },
 ): Promise<RemoteFolder> {
     return requestJson(`/folders/${id}`, jsonInit("PATCH", data));
 }

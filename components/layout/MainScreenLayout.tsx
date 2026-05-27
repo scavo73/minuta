@@ -19,9 +19,11 @@ type ScrollHandler = (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
 
 interface MainScreenLayoutProps {
   actions?: ReactNode;
+  centerHeaderTitle?: boolean;
   children: (props: { onScroll: ScrollHandler }) => ReactNode;
   chips?: ReactNode;
   compactHeader?: boolean;
+  leadingAction?: ReactNode;
   searchPlaceholder?: string;
   searchValue?: string;
   title: string;
@@ -32,9 +34,11 @@ interface MainScreenLayoutProps {
 
 export function MainScreenLayout({
   actions,
+  centerHeaderTitle = false,
   children,
   chips,
   compactHeader = false,
+  leadingAction,
   onSearchBlur,
   onSearchChange,
   onSearchFocus,
@@ -72,7 +76,12 @@ export function MainScreenLayout({
       style={[styles.screen, { backgroundColor: theme.background }]}
     >
       <View style={styles.fixedArea}>
-        <FixedHeader actions={actions} title={title} />
+        <FixedHeader
+          actions={actions}
+          centerTitle={centerHeaderTitle}
+          leadingAction={leadingAction}
+          title={title}
+        />
         {!compactHeader && searchPlaceholder && onSearchChange ? (
           <CollapsibleSearch
             collapsed={isSearchCollapsed}

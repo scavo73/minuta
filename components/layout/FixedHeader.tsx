@@ -6,11 +6,41 @@ import { useMinutaTheme } from "../../constants/useMinutaTheme";
 
 interface FixedHeaderProps {
   actions?: ReactNode;
+  centerTitle?: boolean;
+  leadingAction?: ReactNode;
   title: string;
 }
 
-export function FixedHeader({ actions, title }: FixedHeaderProps) {
+export function FixedHeader({
+  actions,
+  centerTitle = false,
+  leadingAction,
+  title,
+}: FixedHeaderProps) {
   const { theme } = useMinutaTheme();
+
+  if (centerTitle) {
+    return (
+      <View style={[styles.header, styles.centeredHeader]}>
+        <View style={styles.leading}>
+          {leadingAction ?? <View style={styles.actionsPlaceholder} />}
+        </View>
+        <Text
+          numberOfLines={1}
+          style={[styles.centeredTitle, { color: theme.text }]}
+        >
+          {title}
+        </Text>
+        <View style={styles.trailing}>
+          {actions ? (
+            <View style={styles.actions}>{actions}</View>
+          ) : (
+            <View style={styles.actionsPlaceholder} />
+          )}
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.header}>
@@ -39,6 +69,24 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     minHeight: 40,
+  },
+  centeredHeader: {
+    justifyContent: "center",
+    position: "relative",
+  },
+  centeredTitle: {
+    fontSize: typography.body,
+    fontWeight: "700",
+    maxWidth: "62%",
+    textAlign: "center",
+  },
+  leading: {
+    left: 0,
+    position: "absolute",
+  },
+  trailing: {
+    position: "absolute",
+    right: 0,
   },
   title: {
     fontSize: typography.title,

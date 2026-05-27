@@ -20,6 +20,7 @@ export interface Task {
   createdAt: Date;
   updatedAt: Date;
   folderId?: string | null;
+  isArchived?: boolean;
 }
 
 export interface IdeaNote extends BaseNote {

@@ -158,26 +158,19 @@ export default function ArchivedNotesScreen() {
   return (
     <MainScreenLayout
       actions={
-        <>
-          <Pressable
-            onPress={() => router.back()}
-            style={[styles.backButton, { backgroundColor: theme.surface }]}
-          >
-            <Ionicons color={theme.text} name="arrow-back" size={22} />
-          </Pressable>
-          <SectionActionsMenu
-            items={[
-              { action: "unarchive", label: "Desarchivar todas" },
-              {
-                action: "deleteAll",
-                label: "Borrar todas",
-                destructive: true,
-              },
-            ]}
-            onSelect={handleSectionAction}
-          />
-        </>
+        <SectionActionsMenu
+          items={[
+            { action: "unarchive", label: "Desarchivar todas" },
+            {
+              action: "deleteAll",
+              label: "Borrar todas",
+              destructive: true,
+            },
+          ]}
+          onSelect={handleSectionAction}
+        />
       }
+      centerHeaderTitle
       chips={
         <FolderChips
           context="notes"
@@ -185,6 +178,14 @@ export default function ArchivedNotesScreen() {
           selectedFolderId={selectedFolderId}
           onSelectFolder={setSelectedFolderId}
         />
+      }
+      leadingAction={
+        <Pressable
+          onPress={() => router.back()}
+          style={[styles.backButton, { backgroundColor: theme.surface }]}
+        >
+          <Ionicons color={theme.text} name="arrow-back" size={22} />
+        </Pressable>
       }
       title="Notas archivadas"
     >

@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import type { ComponentProps } from "react";
 import { useEffect, useRef } from "react";
 import {
   Animated,
@@ -20,6 +21,8 @@ interface TaskRowProps {
   task: Task;
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
+  onArchive?: (id: string) => void;
+  archiveIcon?: ComponentProps<typeof Ionicons>["name"];
   onPressText: (task: Task) => void;
   isEditing?: boolean;
   editText?: string;
@@ -31,11 +34,14 @@ interface TaskRowProps {
 
 const deleteThreshold = 88;
 const deleteColor = "#EF4444";
+const archiveColor = "#0EA5E9";
 
 export function TaskRow({
   task,
   onToggle,
   onDelete,
+  onArchive,
+  archiveIcon = "archive-outline",
   onPressText,
   isEditing = false,
   editText = task.text,
@@ -52,16 +58,18 @@ export function TaskRow({
   const isSwiping = useRef(false);
   const taskId = useRef(task.id);
   const deleteTask = useRef(onDelete);
+  const archiveTask = useRef(onArchive);
   const swipeStart = useRef(onSwipeStart);
   const swipeEnd = useRef(onSwipeEnd);
   const screenWidthRef = useRef(screenWidth);
 
   useEffect(() => {
     deleteTask.current = onDelete;
+    archiveTask.current = onArchive;
     swipeStart.current = onSwipeStart;
     swipeEnd.current = onSwipeEnd;
     screenWidthRef.current = screenWidth;
-  }, [onDelete, onSwipeEnd, onSwipeStart, screenWidth]);
+  }, [onArchive, onDelete, onSwipeEnd, onSwipeStart, screenWidth]);
 
   useEffect(() => {
     taskId.current = task.id;
@@ -104,7 +112,7 @@ export function TaskRow({
     );
   };
 
-  const completeDelete = (direction: 1 | -1) => {
+  const completeSwipeAction = (direction: 1 | -1) => {
     if (hasDeleted.current) return;
 
     hasDeleted.current = true;
@@ -116,6 +124,11 @@ export function TaskRow({
       endSwipe();
 
       if (finished) {
+        if (direction > 0) {
+          archiveTask.current?.(taskId.current);
+          return;
+        }
+
         deleteTask.current(taskId.current);
       }
     });
@@ -142,7 +155,12 @@ export function TaskRow({
       },
       onPanResponderRelease: (_, gesture) => {
         if (Math.abs(gesture.dx) >= deleteThreshold) {
-          completeDelete(gesture.dx > 0 ? 1 : -1);
+          if (gesture.dx > 0 && !archiveTask.current) {
+            resetPosition();
+            return;
+          }
+
+          completeSwipeAction(gesture.dx > 0 ? 1 : -1);
           return;
         }
 
@@ -182,26 +200,32 @@ export function TaskRow({
 
   return (
     <View style={styles.swipeWrapper}>
-      <View style={[styles.deleteBackground, { backgroundColor: deleteColor }]}>
+      <View style={styles.swipeBackground}>
+        <View
+          style={[styles.archiveBackground, { backgroundColor: archiveColor }]}
+        />
+        <View
+          style={[styles.deleteBackground, { backgroundColor: deleteColor }]}
+        />
         <Animated.View
           style={[
-            styles.swipeDeleteIcon,
-            styles.swipeDeleteIconLeft,
+            styles.swipeActionIcon,
+            styles.swipeActionIconLeft,
             {
               opacity: leftIconOpacity,
-              transform: [{ scale: leftIconScale }],
+              transform: [{ translateY: -12 }, { scale: leftIconScale }],
             },
           ]}
         >
-          <Ionicons color="#FFFFFF" name="trash-outline" size={24} />
+          <Ionicons color="#FFFFFF" name={archiveIcon} size={24} />
         </Animated.View>
         <Animated.View
           style={[
-            styles.swipeDeleteIcon,
-            styles.swipeDeleteIconRight,
+            styles.swipeActionIcon,
+            styles.swipeActionIconRight,
             {
               opacity: rightIconOpacity,
-              transform: [{ scale: rightIconScale }],
+              transform: [{ translateY: -12 }, { scale: rightIconScale }],
             },
           ]}
         >
@@ -258,18 +282,34 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     overflow: "hidden",
   },
-  deleteBackground: {
+  swipeBackground: {
     ...StyleSheet.absoluteFillObject,
     borderRadius: radius.lg,
+  },
+  archiveBackground: {
+    bottom: 0,
     justifyContent: "center",
-  },
-  swipeDeleteIcon: {
+    left: 0,
     position: "absolute",
+    top: 0,
+    width: "50%",
   },
-  swipeDeleteIconLeft: {
+  deleteBackground: {
+    bottom: 0,
+    justifyContent: "center",
+    position: "absolute",
+    right: 0,
+    top: 0,
+    width: "50%",
+  },
+  swipeActionIcon: {
+    position: "absolute",
+    top: "50%",
+  },
+  swipeActionIconLeft: {
     left: spacing.md,
   },
-  swipeDeleteIconRight: {
+  swipeActionIconRight: {
     right: spacing.md,
   },
   taskRow: {

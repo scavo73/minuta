@@ -1,6 +1,6 @@
 import type { NoteKind } from "../types";
 import { useNotesStore } from "../store/notesStore";
-import type { Folder } from "../store/foldersStore";
+import { useFoldersStore, type Folder } from "../store/foldersStore";
 import { calculateFolderCounts, groupItemsByFolder } from "./folders";
 import {
   createFolderRecord,
@@ -16,6 +16,14 @@ export function createFolder(name: string): Promise<Folder | null> {
 
 export function updateFolderName(folderId: string, newName: string) {
   return updateFolderRecordName(folderId, newName);
+}
+
+export function archiveFolder(folderId: string) {
+  return useFoldersStore.getState().archiveFolder(folderId);
+}
+
+export function unarchiveFolder(folderId: string) {
+  return useFoldersStore.getState().unarchiveFolder(folderId);
 }
 
 export async function deleteFolderOnly(folderId: string) {

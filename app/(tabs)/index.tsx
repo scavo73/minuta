@@ -121,12 +121,13 @@ export default function HomeScreen() {
 
   const activeNotes = notes.filter((note) => !note.isArchived);
   const activeIdeas = ideas.filter((idea) => !idea.isArchived);
+  const activeTasks = tasks.filter((task) => !task.isArchived);
   const folderChips = buildFolderChips(folders, {
-    tasks,
+    tasks: activeTasks,
     notes: activeNotes,
     ideas: activeIdeas,
   });
-  const filteredTasks = tasks.filter((task) =>
+  const filteredTasks = activeTasks.filter((task) =>
     matchesFolderFilter(task, selectedFolderId),
   );
   const pendingVisibleTasks = filteredTasks.filter(

@@ -54,6 +54,7 @@ export default function IdeasScreen() {
   const [selectedFolderId, setSelectedFolderId] =
     useState<FolderFilterId>(ALL_FOLDERS_ID);
   const folders = useFoldersStore((state) => state.folders);
+  const archivedFolders = useFoldersStore((state) => state.archivedFolders);
   const setCreateContext = useCreateContextStore(
     (state) => state.setCreateContext,
   );
@@ -272,6 +273,7 @@ export default function IdeasScreen() {
         )}
       </MainScreenLayout>
       <FoldersModal
+        archivedFolders={archivedFolders}
         folders={folders}
         isOpen={isFoldersModalOpen}
         onClose={() => setIsFoldersModalOpen(false)}

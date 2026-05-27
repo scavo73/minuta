@@ -18,19 +18,23 @@ import { radius, spacing, typography } from "../../constants/theme";
 import { useMinutaTheme } from "../../constants/useMinutaTheme";
 import { calculateFolderCounts } from "../../lib/folders";
 import {
+  archiveFolder,
   deleteFolderIdeas,
   deleteFolderNotes,
   deleteFolderOnly,
   deleteFolderTasks,
   deleteFolderWithContent,
+  unarchiveFolder,
   updateFolderName,
 } from "../../lib/foldersService";
 import { useFoldersStore } from "../../store/foldersStore";
 import { useNotesStore } from "../../store/notesStore";
 
 type FolderAction =
+  | "archiveFolder"
   | "editFolder"
   | "deleteFolder"
+  | "unarchive"
   | "deleteFolderContent"
   | "deleteFolderTasks"
   | "deleteFolderNotes"
@@ -38,6 +42,7 @@ type FolderAction =
 
 const folderActionItems = [
   { action: "editFolder", label: "Editar nombre" },
+  { action: "archiveFolder", label: "Archivar" },
   { action: "deleteFolder", label: "Borrar carpeta", destructive: true },
   { action: "deleteFolderTasks", label: "Borrar tareas", destructive: true },
   { action: "deleteFolderNotes", label: "Borrar notas", destructive: true },
@@ -45,15 +50,24 @@ const folderActionItems = [
   { action: "deleteFolderContent", label: "Borrar todo", destructive: true },
 ] as const;
 
+const archivedFolderActionItems = [
+  { action: "unarchive", label: "Desarchivar" },
+  { action: "deleteFolder", label: "Borrar carpeta", destructive: true },
+] as const;
+
 export default function FolderDetailScreen() {
   const { theme } = useMinutaTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const folderId = Array.isArray(id) ? id[0] : id;
   const folders = useFoldersStore((state) => state.folders);
+  const archivedFolders = useFoldersStore((state) => state.archivedFolders);
   const notes = useNotesStore((state) => state.notes);
   const ideas = useNotesStore((state) => state.ideas);
   const tasks = useNotesStore((state) => state.tasks);
-  const folder = folders.find((item) => item.id === folderId);
+  const activeFolder = folders.find((item) => item.id === folderId);
+  const archivedFolder = archivedFolders.find((item) => item.id === folderId);
+  const folder = activeFolder ?? archivedFolder;
+  const isArchivedFolder = archivedFolder != null;
   const [isEditingName, setIsEditingName] = useState(false);
   const [folderName, setFolderName] = useState(folder?.name ?? "");
 
@@ -90,10 +104,22 @@ export default function FolderDetailScreen() {
     router.back();
   };
 
+  const archiveCurrentFolder = async () => {
+    await archiveFolder(folder.id);
+    router.back();
+  };
+
+  const unarchiveCurrentFolder = async () => {
+    await unarchiveFolder(folder.id);
+    router.back();
+  };
+
   const handleAction = (action: ItemAction) => {
     const folderAction = action as FolderAction;
 
     if (folderAction === "editFolder") {
+      if (isArchivedFolder) return;
+
       setFolderName(folder.name);
       setIsEditingName(true);
       return;
@@ -106,6 +132,18 @@ export default function FolderDetailScreen() {
           "Eliminar esta carpeta no borrará sus tareas, notas ni ideas. Los items pasarán a Sin carpeta.",
         onConfirm: removeFolderOnly,
       });
+      return;
+    }
+
+    if (folderAction === "unarchive") {
+      unarchiveCurrentFolder();
+      return;
+    }
+
+    if (folderAction === "archiveFolder") {
+      if (isArchivedFolder) return;
+
+      archiveCurrentFolder();
       return;
     }
 
@@ -174,7 +212,9 @@ export default function FolderDetailScreen() {
           </Text>
           <SectionActionsMenu
             items={
-              folderActionItems as unknown as {
+              (isArchivedFolder
+                ? archivedFolderActionItems
+                : folderActionItems) as unknown as {
                 action: ItemAction;
                 label: string;
                 destructive?: boolean;
