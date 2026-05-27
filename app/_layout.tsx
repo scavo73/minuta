@@ -22,14 +22,7 @@ export default function RootLayout() {
       <StatusBar style="auto" />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen
-          name="new-item"
-          options={{
-            presentation: "modal",
-            //hanimation: 'slide_from_bottom',
-            gestureEnabled: true,
-          }}
-        />
+        <Stack.Screen name="new-item" />
         <Stack.Screen name="item/[id]" />
         <Stack.Screen name="folder/[id]" />
       </Stack>

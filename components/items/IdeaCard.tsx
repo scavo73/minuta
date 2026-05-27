@@ -30,11 +30,7 @@ export function IdeaCard({
       ]}
     >
       <View style={styles.header}>
-        {isHome ? (
-          <Ionicons color={theme.mutedText} name="bulb-outline" size={18} />
-        ) : (
-          <Text style={[styles.label, { color: theme.mutedText }]}>Idea</Text>
-        )}
+        <Ionicons color={theme.mutedText} name="bulb-outline" size={18} />
         <Text style={[styles.date, { color: theme.mutedText }]}>
           {idea.updatedAt.toLocaleDateString()}
         </Text>
@@ -80,15 +76,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: spacing.sm,
   },
-  label: {
-    fontSize: typography.small,
-    fontWeight: "700",
-  },
   date: {
     fontSize: typography.small,
   },
   title: {
-    fontSize: typography.subtitle,
+    fontSize: typography.body,
     fontWeight: "700",
   },
   homeTitle: {

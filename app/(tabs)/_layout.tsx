@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Tabs, router } from "expo-router";
+import { Tabs, router, usePathname } from "expo-router";
 import { Pressable, StyleSheet, Text } from "react-native";
 
 import { useMinutaTheme } from "../../constants/useMinutaTheme";
@@ -7,8 +7,10 @@ import { useCreateContextStore } from "../../store/createContextStore";
 
 export default function TabsLayout() {
   const { theme } = useMinutaTheme();
+  const pathname = usePathname();
   const createKind = useCreateContextStore((state) => state.kind);
   const createFolderId = useCreateContextStore((state) => state.folderId);
+  const isCreateKindLocked = pathname !== "/";
 
   return (
     <Tabs
@@ -88,6 +90,7 @@ export default function TabsLayout() {
                   params: {
                     folderId: createFolderId ?? "",
                     kind: createKind,
+                    mode: isCreateKindLocked ? "locked" : "picker",
                   },
                 })
               }

@@ -3,9 +3,9 @@ export const lightTheme = {
   surface: '#FFFFFF',
   text: '#111827',
   mutedText: '#6B7280',
-  primary: '#38BDF8',
+  primary: '#111827',
   noteCard: '#FFFFFF',
-  taskCard: '#7DD3FC',
+  taskCard: '#E5E7EB',
   ideaCard: '#FDE68A',
 };
 
@@ -14,9 +14,9 @@ export const darkTheme = {
   surface: '#1F2937',
   text: '#F9FAFB',
   mutedText: '#9CA3AF',
-  primary: '#38BDF8',
+  primary: '#4B5563',
   noteCard: '#1F2937',
-  taskCard: '#0F172A',
+  taskCard: '#374151',
   ideaCard: '#374151',
 };
 

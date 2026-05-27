@@ -8,12 +8,14 @@ interface TagSuggestionsProps {
   availableTags: string[];
   selectedTags: string[];
   onChange: (tags: string[]) => void;
+  variant?: "default" | "large";
 }
 
 export function TagSuggestions({
   availableTags,
   onChange,
   selectedTags,
+  variant = "default",
 }: TagSuggestionsProps) {
   const { theme } = useMinutaTheme();
   const selectedKeys = new Set(selectedTags.map((tag) => tag.toLowerCase()));
@@ -45,6 +47,7 @@ export function TagSuggestions({
             onPress={() => toggleTag(tag)}
             style={[
               styles.chip,
+              variant === "large" ? styles.largeChip : null,
               {
                 backgroundColor: theme.surface,
                 borderColor: isSelected ? theme.primary : theme.mutedText,
@@ -89,6 +92,12 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
+  },
+  largeChip: {
+    borderRadius: 100,
+    minHeight: 34,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
   },
   chipText: {
     fontSize: typography.small,

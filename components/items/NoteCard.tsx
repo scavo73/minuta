@@ -36,15 +36,11 @@ export function NoteCard({
         />
       ) : null}
       <View style={styles.header}>
-        {isHome ? (
-          <Ionicons
-            color={theme.primary}
-            name="document-text-outline"
-            size={18}
-          />
-        ) : (
-          <Text style={[styles.label, { color: theme.primary }]}>Nota</Text>
-        )}
+        <Ionicons
+          color={theme.primary}
+          name="document-text-outline"
+          size={18}
+        />
         <Text style={[styles.date, { color: theme.mutedText }]}>
           {note.updatedAt.toLocaleDateString()}
         </Text>
@@ -98,23 +94,19 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: spacing.sm,
   },
-  label: {
-    fontSize: typography.small,
-    fontWeight: "700",
-  },
   date: {
     fontSize: typography.small,
   },
   title: {
-    fontSize: typography.subtitle,
+    fontSize: typography.body,
     fontWeight: "700",
   },
   homeTitle: {
     fontSize: typography.body,
   },
   preview: {
-    fontSize: typography.body,
-    lineHeight: 22,
+    fontSize: typography.small,
+    lineHeight: 18,
     marginTop: spacing.xs,
   },
   homePreview: {

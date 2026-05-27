@@ -4,7 +4,7 @@ import { vars } from 'nativewind';
 
 export const config = {
   light: vars({
-    '--color-primary-500': '56 189 248',
+    '--color-primary-500': '17 24 39',
     '--color-background-0': '248 248 251',
     '--color-background-50': '255 255 255',
     '--color-typography-900': '17 24 39',
@@ -12,7 +12,7 @@ export const config = {
     '--color-outline-200': '229 231 235',
   }),
   dark: vars({
-    '--color-primary-500': '56 189 248',
+    '--color-primary-500': '75 85 99',
     '--color-background-0': '17 24 39',
     '--color-background-50': '31 41 55',
     '--color-typography-900': '249 250 251',
