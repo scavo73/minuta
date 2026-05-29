@@ -10,8 +10,8 @@ export type RemoteFolder = {
     createdAt?: string | number;
     updated_at?: string | number | null;
     updatedAt?: string | number | null;
-    is_archived?: boolean;
-    isArchived?: boolean;
+    is_archive?: boolean;
+    isArchive?: boolean;
 };
 
 export type MinutaItem = {
@@ -29,8 +29,8 @@ export type MinutaItem = {
     updatedAt?: string | number;
     is_completed?: boolean;
     isCompleted?: boolean;
-    is_archived?: boolean;
-    isArchived?: boolean;
+    is_archive?: boolean;
+    isArchive?: boolean;
     folder_id?: string | null;
     folderId?: string | null;
     tags?: string[];
@@ -41,6 +41,11 @@ export type ChecklistItem = {
     note_id: string;
     text: string;
     is_completed: boolean;
+};
+
+export type ArchivesResponse = {
+    items: MinutaItem[];
+    folders: RemoteFolder[];
 };
 
 export type CreateItemInput = {
@@ -56,6 +61,8 @@ export type CreateItemInput = {
     isCompleted?: boolean;
     folder_id?: string | null;
     folderId?: string | null;
+    is_archive?: boolean;
+    isArchive?: boolean;
 };
 
 export type UpdateItemInput = Partial<CreateItemInput>;
@@ -128,7 +135,7 @@ export async function createFolder(data: {
 
 export async function updateFolder(
     id: string,
-    data: { name?: string; is_archived?: boolean; isArchived?: boolean },
+    data: { name?: string; is_archive?: boolean; isArchive?: boolean },
 ): Promise<RemoteFolder> {
     return requestJson(`/folders/${id}`, jsonInit("PATCH", data));
 }
@@ -163,6 +170,10 @@ export async function getItems(): Promise<MinutaItem[]> {
     ];
 }
 
+export async function getArchives(): Promise<ArchivesResponse> {
+    return requestJson("/archives");
+}
+
 export async function createItem(data: CreateItemInput): Promise<MinutaItem> {
     const resource = getResourceForType(data.type);
     const payload = withoutType(data);
@@ -184,6 +195,28 @@ export async function updateItem(
         `/${resource}/${id}`,
         jsonInit("PATCH", withFolderAliases(payload)),
     );
+}
+
+export async function setItemArchived(
+    id: string,
+    type: MinutaItemType,
+    isArchive: boolean,
+): Promise<MinutaItem> {
+    return updateItem(id, {
+        type,
+        is_archive: isArchive,
+        isArchive,
+    });
+}
+
+export async function setFolderArchived(
+    id: string,
+    isArchive: boolean,
+): Promise<RemoteFolder> {
+    return updateFolder(id, {
+        is_archive: isArchive,
+        isArchive,
+    });
 }
 
 export async function deleteItem(

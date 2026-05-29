@@ -29,12 +29,12 @@ import type { Task } from "../../types";
 
 type ArchivedTaskListItem =
   | {
-      id: string;
-      type: "section";
-      count: number;
-      title: string;
-      variant?: "folder" | "unfiled";
-    }
+    id: string;
+    type: "section";
+    count: number;
+    title: string;
+    variant?: "folder" | "unfiled";
+  }
   | { id: string; type: "task"; task: Task };
 
 export default function ArchivedTasksScreen() {
@@ -45,6 +45,7 @@ export default function ArchivedTasksScreen() {
     useState<FolderFilterId>(ALL_FOLDERS_ID);
   const folders = useFoldersStore((state) => state.folders);
   const tasks = useNotesStore((state) => state.tasks);
+  const fetchArchivedItems = useNotesStore((state) => state.fetchArchivedItems);
   const deleteAllArchivedTasks = useNotesStore(
     (state) => state.deleteAllArchivedTasks,
   );
@@ -61,43 +62,47 @@ export default function ArchivedTasksScreen() {
   const archivedTaskListData: ArchivedTaskListItem[] =
     selectedFolderId === ALL_FOLDERS_ID
       ? [
-          ...(groupedArchivedTasks.unfiledItems.length > 0
-            ? [
-                {
-                  id: "section-unfiled",
-                  type: "section" as const,
-                  title: "General",
-                  count: groupedArchivedTasks.unfiledItems.length,
-                  variant: "unfiled" as const,
-                },
-                ...groupedArchivedTasks.unfiledItems.map((task) => ({
-                  id: task.id,
-                  type: "task" as const,
-                  task,
-                })),
-              ]
-            : []),
-          ...groupedArchivedTasks.folderGroups.flatMap((group) => [
+        ...(groupedArchivedTasks.unfiledItems.length > 0
+          ? [
             {
-              id: `section-${group.folder.id}`,
+              id: "section-unfiled",
               type: "section" as const,
-              title: group.folder.name,
-              count: group.items.length,
-              variant: "folder" as const,
+              title: "General",
+              count: groupedArchivedTasks.unfiledItems.length,
+              variant: "unfiled" as const,
             },
-            ...group.items.map((task) => ({
+            ...groupedArchivedTasks.unfiledItems.map((task) => ({
               id: task.id,
               type: "task" as const,
               task,
             })),
-          ]),
-        ]
+          ]
+          : []),
+        ...groupedArchivedTasks.folderGroups.flatMap((group) => [
+          {
+            id: `section-${group.folder.id}`,
+            type: "section" as const,
+            title: group.folder.name,
+            count: group.items.length,
+            variant: "folder" as const,
+          },
+          ...group.items.map((task) => ({
+            id: task.id,
+            type: "task" as const,
+            task,
+          })),
+        ]),
+      ]
       : archivedTasks.map((task) => ({
-          id: task.id,
-          type: "task",
-          task,
-        }));
+        id: task.id,
+        type: "task",
+        task,
+      }));
   const previousArchivedCount = useRef(allArchivedTasks.length);
+
+  useEffect(() => {
+    fetchArchivedItems();
+  }, [fetchArchivedItems]);
 
   useEffect(() => {
     if (

@@ -28,14 +28,16 @@ import { useFoldersStore } from "../../store/foldersStore";
 import { useNotesStore } from "../../store/notesStore";
 import type { Note } from "../../types";
 
+
+
 type ArchivedNoteListItem =
   | {
-      id: string;
-      type: "section";
-      count: number;
-      title: string;
-      variant?: "folder" | "unfiled";
-    }
+    id: string;
+    type: "section";
+    count: number;
+    title: string;
+    variant?: "folder" | "unfiled";
+  }
   | { id: string; type: "note"; note: Note };
 
 export default function ArchivedNotesScreen() {
@@ -46,6 +48,7 @@ export default function ArchivedNotesScreen() {
     useState<FolderFilterId>(ALL_FOLDERS_ID);
   const folders = useFoldersStore((state) => state.folders);
   const notes = useNotesStore((state) => state.notes);
+  const fetchArchivedItems = useNotesStore((state) => state.fetchArchivedItems);
   const deleteAllArchivedNotes = useNotesStore(
     (state) => state.deleteAllArchivedNotes,
   );
@@ -62,43 +65,47 @@ export default function ArchivedNotesScreen() {
   const archivedNoteListData: ArchivedNoteListItem[] =
     selectedFolderId === ALL_FOLDERS_ID
       ? [
-          ...(groupedArchivedNotes.unfiledItems.length > 0
-            ? [
-                {
-                  id: "section-unfiled",
-                  type: "section" as const,
-                  title: "General",
-                  count: groupedArchivedNotes.unfiledItems.length,
-                  variant: "unfiled" as const,
-                },
-                ...groupedArchivedNotes.unfiledItems.map((note) => ({
-                  id: note.id,
-                  type: "note" as const,
-                  note,
-                })),
-              ]
-            : []),
-          ...groupedArchivedNotes.folderGroups.flatMap((group) => [
+        ...(groupedArchivedNotes.unfiledItems.length > 0
+          ? [
             {
-              id: `section-${group.folder.id}`,
+              id: "section-unfiled",
               type: "section" as const,
-              title: group.folder.name,
-              count: group.items.length,
-              variant: "folder" as const,
+              title: "General",
+              count: groupedArchivedNotes.unfiledItems.length,
+              variant: "unfiled" as const,
             },
-            ...group.items.map((note) => ({
+            ...groupedArchivedNotes.unfiledItems.map((note) => ({
               id: note.id,
               type: "note" as const,
               note,
             })),
-          ]),
-        ]
+          ]
+          : []),
+        ...groupedArchivedNotes.folderGroups.flatMap((group) => [
+          {
+            id: `section-${group.folder.id}`,
+            type: "section" as const,
+            title: group.folder.name,
+            count: group.items.length,
+            variant: "folder" as const,
+          },
+          ...group.items.map((note) => ({
+            id: note.id,
+            type: "note" as const,
+            note,
+          })),
+        ]),
+      ]
       : archivedNotes.map((note) => ({
-          id: note.id,
-          type: "note",
-          note,
-        }));
+        id: note.id,
+        type: "note",
+        note,
+      }));
   const previousArchivedCount = useRef(allArchivedNotes.length);
+
+  useEffect(() => {
+    fetchArchivedItems();
+  }, [fetchArchivedItems]);
 
   useEffect(() => {
     if (
@@ -190,45 +197,45 @@ export default function ArchivedNotesScreen() {
       title="Notas archivadas"
     >
       {({ onScroll }) => (
-      <FlashList
-        data={archivedNoteListData}
-        estimatedItemSize={140}
-        keyExtractor={(item) => item.id}
-        ListEmptyComponent={
-          <EmptyState title={emptyState.title} text={emptyState.text} />
-        }
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
-        contentContainerStyle={[
-          styles.content,
-          { paddingBottom: insets.bottom + spacing.md },
-        ]}
-        onScroll={onScroll}
-        scrollEventThrottle={16}
-        scrollEnabled={!isRowSwiping}
-        renderItem={({ item }) =>
-          item.type === "section" ? (
-            <FolderSectionHeader
-              count={item.count}
-              title={item.title}
-              variant={item.variant}
-            />
-          ) : (
-            <SwipeableItemCard
-              archiveIcon="arrow-undo-outline"
-              archiveLabel="Desarchivar"
-              onArchive={() => unarchiveNote(item.note.id)}
-              onDelete={() => confirmDeleteNote(item.note.id)}
-              onSwipeEnd={() => setIsRowSwiping(false)}
-              onSwipeStart={() => setIsRowSwiping(true)}
-            >
-              <NoteCard
-                note={item.note}
-                onPress={() => router.push(`/item/${item.note.id}`)}
+        <FlashList
+          data={archivedNoteListData}
+          estimatedItemSize={140}
+          keyExtractor={(item) => item.id}
+          ListEmptyComponent={
+            <EmptyState title={emptyState.title} text={emptyState.text} />
+          }
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: insets.bottom + spacing.md },
+          ]}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
+          scrollEnabled={!isRowSwiping}
+          renderItem={({ item }) =>
+            item.type === "section" ? (
+              <FolderSectionHeader
+                count={item.count}
+                title={item.title}
+                variant={item.variant}
               />
-            </SwipeableItemCard>
-          )
-        }
-      />
+            ) : (
+              <SwipeableItemCard
+                archiveIcon="arrow-undo-outline"
+                archiveLabel="Desarchivar"
+                onArchive={() => unarchiveNote(item.note.id)}
+                onDelete={() => confirmDeleteNote(item.note.id)}
+                onSwipeEnd={() => setIsRowSwiping(false)}
+                onSwipeStart={() => setIsRowSwiping(true)}
+              >
+                <NoteCard
+                  note={item.note}
+                  onPress={() => router.push(`/item/${item.note.id}`)}
+                />
+              </SwipeableItemCard>
+            )
+          }
+        />
       )}
     </MainScreenLayout>
   );

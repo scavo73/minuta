@@ -32,9 +32,16 @@ export default function ArchivedFoldersScreen() {
       router.back();
       return;
     }
-
     previousArchivedCount.current = archivedFolders.length;
   }, [archivedFolders.length]);
+
+  const fetchArchivedFolders = useFoldersStore(
+    (state) => state.fetchArchivedFolders,
+  );
+
+  useEffect(() => {
+    fetchArchivedFolders();
+  }, [fetchArchivedFolders]);
 
   const toggleFolderSelection = (folderId: string) => {
     setSelectedFolderIds((currentIds) =>
@@ -100,13 +107,13 @@ export default function ArchivedFoldersScreen() {
     { action: "selectAll" as const, label: "Seleccionar todas" },
     ...(selectedFolderIds.length > 0
       ? [
-          { action: "unarchive" as const, label: "Desarchivar seleccionadas" },
-          {
-            action: "deleteAll" as const,
-            label: "Borrar seleccionadas",
-            destructive: true,
-          },
-        ]
+        { action: "unarchive" as const, label: "Desarchivar seleccionadas" },
+        {
+          action: "deleteAll" as const,
+          label: "Borrar seleccionadas",
+          destructive: true,
+        },
+      ]
       : []),
   ];
 
@@ -186,7 +193,7 @@ export default function ArchivedFoldersScreen() {
                 </View>
               </View>
             ) : null}
-            </View>
+          </View>
         </View>
         {!isSelecting ? (
           <Ionicons color={theme.mutedText} name="chevron-forward" size={18} />

@@ -30,12 +30,12 @@ import type { IdeaNote } from "../../types";
 
 type ArchivedIdeaListItem =
   | {
-      id: string;
-      type: "section";
-      count: number;
-      title: string;
-      variant?: "folder" | "unfiled";
-    }
+    id: string;
+    type: "section";
+    count: number;
+    title: string;
+    variant?: "folder" | "unfiled";
+  }
   | { id: string; type: "idea"; idea: IdeaNote };
 
 export default function ArchivedIdeasScreen() {
@@ -46,6 +46,7 @@ export default function ArchivedIdeasScreen() {
     useState<FolderFilterId>(ALL_FOLDERS_ID);
   const folders = useFoldersStore((state) => state.folders);
   const ideas = useNotesStore((state) => state.ideas);
+  const fetchArchivedItems = useNotesStore((state) => state.fetchArchivedItems);
   const deleteAllArchivedIdeas = useNotesStore(
     (state) => state.deleteAllArchivedIdeas,
   );
@@ -62,43 +63,47 @@ export default function ArchivedIdeasScreen() {
   const archivedIdeaListData: ArchivedIdeaListItem[] =
     selectedFolderId === ALL_FOLDERS_ID
       ? [
-          ...(groupedArchivedIdeas.unfiledItems.length > 0
-            ? [
-                {
-                  id: "section-unfiled",
-                  type: "section" as const,
-                  title: "General",
-                  count: groupedArchivedIdeas.unfiledItems.length,
-                  variant: "unfiled" as const,
-                },
-                ...groupedArchivedIdeas.unfiledItems.map((idea) => ({
-                  id: idea.id,
-                  type: "idea" as const,
-                  idea,
-                })),
-              ]
-            : []),
-          ...groupedArchivedIdeas.folderGroups.flatMap((group) => [
+        ...(groupedArchivedIdeas.unfiledItems.length > 0
+          ? [
             {
-              id: `section-${group.folder.id}`,
+              id: "section-unfiled",
               type: "section" as const,
-              title: group.folder.name,
-              count: group.items.length,
-              variant: "folder" as const,
+              title: "General",
+              count: groupedArchivedIdeas.unfiledItems.length,
+              variant: "unfiled" as const,
             },
-            ...group.items.map((idea) => ({
+            ...groupedArchivedIdeas.unfiledItems.map((idea) => ({
               id: idea.id,
               type: "idea" as const,
               idea,
             })),
-          ]),
-        ]
+          ]
+          : []),
+        ...groupedArchivedIdeas.folderGroups.flatMap((group) => [
+          {
+            id: `section-${group.folder.id}`,
+            type: "section" as const,
+            title: group.folder.name,
+            count: group.items.length,
+            variant: "folder" as const,
+          },
+          ...group.items.map((idea) => ({
+            id: idea.id,
+            type: "idea" as const,
+            idea,
+          })),
+        ]),
+      ]
       : archivedIdeas.map((idea) => ({
-          id: idea.id,
-          type: "idea",
-          idea,
-        }));
+        id: idea.id,
+        type: "idea",
+        idea,
+      }));
   const previousArchivedCount = useRef(allArchivedIdeas.length);
+
+  useEffect(() => {
+    fetchArchivedItems();
+  }, [fetchArchivedItems]);
 
   useEffect(() => {
     if (
@@ -190,45 +195,45 @@ export default function ArchivedIdeasScreen() {
       title="Ideas archivadas"
     >
       {({ onScroll }) => (
-      <FlashList
-        data={archivedIdeaListData}
-        estimatedItemSize={140}
-        keyExtractor={(item) => item.id}
-        ListEmptyComponent={
-          <EmptyState title={emptyState.title} text={emptyState.text} />
-        }
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
-        contentContainerStyle={[
-          styles.content,
-          { paddingBottom: insets.bottom + spacing.md },
-        ]}
-        onScroll={onScroll}
-        scrollEventThrottle={16}
-        scrollEnabled={!isRowSwiping}
-        renderItem={({ item }) =>
-          item.type === "section" ? (
-            <FolderSectionHeader
-              count={item.count}
-              title={item.title}
-              variant={item.variant}
-            />
-          ) : (
-            <SwipeableItemCard
-              archiveIcon="arrow-undo-outline"
-              archiveLabel="Desarchivar"
-              onArchive={() => unarchiveIdea(item.idea.id)}
-              onDelete={() => confirmDeleteIdea(item.idea.id)}
-              onSwipeEnd={() => setIsRowSwiping(false)}
-              onSwipeStart={() => setIsRowSwiping(true)}
-            >
-              <IdeaCard
-                idea={item.idea}
-                onPress={() => router.push(`/item/${item.idea.id}`)}
+        <FlashList
+          data={archivedIdeaListData}
+          estimatedItemSize={140}
+          keyExtractor={(item) => item.id}
+          ListEmptyComponent={
+            <EmptyState title={emptyState.title} text={emptyState.text} />
+          }
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: insets.bottom + spacing.md },
+          ]}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
+          scrollEnabled={!isRowSwiping}
+          renderItem={({ item }) =>
+            item.type === "section" ? (
+              <FolderSectionHeader
+                count={item.count}
+                title={item.title}
+                variant={item.variant}
               />
-            </SwipeableItemCard>
-          )
-        }
-      />
+            ) : (
+              <SwipeableItemCard
+                archiveIcon="arrow-undo-outline"
+                archiveLabel="Desarchivar"
+                onArchive={() => unarchiveIdea(item.idea.id)}
+                onDelete={() => confirmDeleteIdea(item.idea.id)}
+                onSwipeEnd={() => setIsRowSwiping(false)}
+                onSwipeStart={() => setIsRowSwiping(true)}
+              >
+                <IdeaCard
+                  idea={item.idea}
+                  onPress={() => router.push(`/item/${item.idea.id}`)}
+                />
+              </SwipeableItemCard>
+            )
+          }
+        />
       )}
     </MainScreenLayout>
   );

@@ -6,7 +6,9 @@ import type { AnyNote, IdeaNote, Note, Task } from "../types";
 
 import {
   deleteItem as deleteRemoteItem,
+  getArchives,
   getItems,
+  setItemArchived as setRemoteItemArchived,
   updateItem as updateRemoteItem,
   type MinutaItem,
 } from "../lib/api";
@@ -20,6 +22,7 @@ interface NotesStore {
   isLoading: boolean;
   error: string | null;
   fetchItems: () => Promise<void>;
+  fetchArchivedItems: () => Promise<void>;
 
   addNote: (note: Note) => void;
   addTask: (task: Task) => void;
@@ -52,21 +55,25 @@ interface NotesStore {
   deleteAllNotes: () => Promise<void>;
   deleteAllIdeas: () => Promise<void>;
 
-  archiveNote: (id: string) => void;
-  archiveTask: (id: string) => void;
-  archiveIdea: (id: string) => void;
-  unarchiveNote: (id: string) => void;
-  unarchiveTask: (id: string) => void;
-  unarchiveIdea: (id: string) => void;
+  archiveNote: (id: string) => Promise<void>;
+  archiveTask: (id: string) => Promise<void>;
+  archiveIdea: (id: string) => Promise<void>;
+  unarchiveNote: (id: string) => Promise<void>;
+  unarchiveTask: (id: string) => Promise<void>;
+  unarchiveIdea: (id: string) => Promise<void>;
+
   markAllNotes: () => void;
   markAllIdeas: () => void;
-  archiveAllNotes: () => void;
-  archiveAllIdeas: () => void;
-  unarchiveAllNotes: () => void;
-  unarchiveAllIdeas: () => void;
+
+  archiveAllNotes: () => Promise<void>;
+  archiveAllIdeas: () => Promise<void>;
+  unarchiveAllNotes: () => Promise<void>;
+  unarchiveAllIdeas: () => Promise<void>;
+
   deleteAllArchivedNotes: () => Promise<void>;
   deleteAllArchivedTasks: () => Promise<void>;
   deleteAllArchivedIdeas: () => Promise<void>;
+
   clearFolderItems: (folderId: string) => Promise<void>;
   deleteFolderIdeas: (folderId: string) => Promise<void>;
   deleteFolderNotes: (folderId: string) => Promise<void>;
@@ -105,7 +112,7 @@ function getRemoteUpdatedAt(item: MinutaItem) {
 }
 
 function getRemoteIsArchived(item: MinutaItem, fallback = false) {
-  return item.is_archived ?? item.isArchived ?? fallback;
+  return item.is_archive ?? item.isArchive ?? fallback;
 }
 
 function getLocalItemType(item: AnyNote) {
@@ -158,6 +165,8 @@ function mapRemoteChecklistToLocal(
     isArchived: getRemoteIsArchived(item, fallbackIsArchived),
   };
 }
+
+
 
 export const useNotesStore = create<NotesStore>()(
   persist(
@@ -224,6 +233,48 @@ export const useNotesStore = create<NotesStore>()(
         }
       },
 
+      fetchArchivedItems: async () => {
+        try {
+          set({
+            isLoading: true,
+            error: null,
+          });
+
+          const archives = await getArchives();
+
+          set({
+            notes: sortByRecent([
+              ...get().notes.filter((note) => !note.isArchived),
+              ...archives.items
+                .filter((item) => item.type === "note")
+                .map((item) => mapRemoteNoteToLocal(item, true)),
+            ]),
+            ideas: sortByRecent([
+              ...get().ideas.filter((idea) => !idea.isArchived),
+              ...archives.items
+                .filter((item) => item.type === "idea")
+                .map((item) => mapRemoteIdeaToLocal(item, true)),
+            ]),
+            tasks: sortByRecent([
+              ...get().tasks.filter((task) => !task.isArchived),
+              ...archives.items
+                .filter((item) => item.type === "checklist")
+                .map((item) => mapRemoteChecklistToLocal(item, true)),
+            ]),
+            isLoading: false,
+            error: null,
+          });
+        } catch (error) {
+          set({
+            isLoading: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : "Error al cargar archivados",
+          });
+        }
+      },
+
       addNote: (note) =>
         set((state) => ({
           notes: sortByRecent([...state.notes, note]),
@@ -257,13 +308,13 @@ export const useNotesStore = create<NotesStore>()(
               state.notes.map((note) =>
                 note.id === id
                   ? {
-                      ...note,
-                      title: updates.title,
-                      content: updates.content,
-                      imageUri: updates.imageUri,
-                      folderId: updates.folderId ?? null,
-                      updatedAt: new Date(),
-                    }
+                    ...note,
+                    title: updates.title,
+                    content: updates.content,
+                    imageUri: updates.imageUri,
+                    folderId: updates.folderId ?? null,
+                    updatedAt: new Date(),
+                  }
                   : note,
               ),
             ),
@@ -297,13 +348,13 @@ export const useNotesStore = create<NotesStore>()(
               state.ideas.map((idea) =>
                 idea.id === id
                   ? {
-                      ...idea,
-                      title: updates.title,
-                      color: updates.color,
-                      tags: updates.tags ?? [],
-                      folderId: updates.folderId ?? null,
-                      updatedAt: new Date(),
-                    }
+                    ...idea,
+                    title: updates.title,
+                    color: updates.color,
+                    tags: updates.tags ?? [],
+                    folderId: updates.folderId ?? null,
+                    updatedAt: new Date(),
+                  }
                   : idea,
               ),
             ),
@@ -382,83 +433,161 @@ export const useNotesStore = create<NotesStore>()(
         }
       },
 
-      archiveNote: (id) =>
-        set((state) => ({
-          notes: state.notes.map((note) =>
-            note.id !== id
-              ? note
-              : {
+      archiveNote: async (id) => {
+        try {
+          await setRemoteItemArchived(id, "note", true);
+
+          set((state) => ({
+            notes: state.notes.map((note) =>
+              note.id !== id
+                ? note
+                : {
                   ...note,
                   isArchived: true,
                   updatedAt: new Date(),
                 },
-          ),
-        })),
+            ),
+            error: null,
+          }));
 
-      archiveTask: (id) =>
-        set((state) => ({
-          tasks: state.tasks.map((task) =>
-            task.id !== id
-              ? task
-              : {
+          await get().fetchArchivedItems();
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error ? error.message : "Error al archivar la nota",
+          });
+        }
+      },
+
+      archiveTask: async (id) => {
+        try {
+          await setRemoteItemArchived(id, "checklist", true);
+
+          set((state) => ({
+            tasks: state.tasks.map((task) =>
+              task.id !== id
+                ? task
+                : {
                   ...task,
                   isArchived: true,
                   updatedAt: new Date(),
                 },
-          ),
-        })),
+            ),
+            error: null,
+          }));
 
-      archiveIdea: (id) =>
-        set((state) => ({
-          ideas: state.ideas.map((idea) =>
-            idea.id !== id
-              ? idea
-              : {
+          await get().fetchArchivedItems();
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error ? error.message : "Error al archivar la tarea",
+          });
+        }
+      },
+
+      archiveIdea: async (id) => {
+        try {
+          await setRemoteItemArchived(id, "idea", true);
+
+          set((state) => ({
+            ideas: state.ideas.map((idea) =>
+              idea.id !== id
+                ? idea
+                : {
                   ...idea,
                   isArchived: true,
                   updatedAt: new Date(),
                 },
-          ),
-        })),
+            ),
+            error: null,
+          }));
 
-      unarchiveNote: (id) =>
-        set((state) => ({
-          notes: state.notes.map((note) =>
-            note.id !== id
-              ? note
-              : {
+          await get().fetchArchivedItems();
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error ? error.message : "Error al archivar la idea",
+          });
+        }
+      },
+
+      unarchiveNote: async (id) => {
+        try {
+          await setRemoteItemArchived(id, "note", false);
+
+          set((state) => ({
+            notes: state.notes.map((note) =>
+              note.id !== id
+                ? note
+                : {
                   ...note,
                   isArchived: false,
                   updatedAt: new Date(),
                 },
-          ),
-        })),
+            ),
+            error: null,
+          }));
 
-      unarchiveTask: (id) =>
-        set((state) => ({
-          tasks: state.tasks.map((task) =>
-            task.id !== id
-              ? task
-              : {
+          await get().fetchItems();
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error ? error.message : "Error al desarchivar la nota",
+          });
+        }
+      },
+
+      unarchiveTask: async (id) => {
+        try {
+          await setRemoteItemArchived(id, "checklist", false);
+
+          set((state) => ({
+            tasks: state.tasks.map((task) =>
+              task.id !== id
+                ? task
+                : {
                   ...task,
                   isArchived: false,
                   updatedAt: new Date(),
                 },
-          ),
-        })),
+            ),
+            error: null,
+          }));
 
-      unarchiveIdea: (id) =>
-        set((state) => ({
-          ideas: state.ideas.map((idea) =>
-            idea.id !== id
-              ? idea
-              : {
+          await get().fetchItems();
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error ? error.message : "Error al desarchivar la tarea",
+          });
+        }
+      },
+
+      unarchiveIdea: async (id) => {
+        try {
+          await setRemoteItemArchived(id, "idea", false);
+
+          set((state) => ({
+            ideas: state.ideas.map((idea) =>
+              idea.id !== id
+                ? idea
+                : {
                   ...idea,
                   isArchived: false,
                   updatedAt: new Date(),
                 },
-          ),
-        })),
+            ),
+            error: null,
+          }));
+
+          await get().fetchItems();
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error ? error.message : "Error al desarchivar la idea",
+          });
+        }
+      },
 
       markAllNotes: () =>
         set((state) => ({
@@ -478,49 +607,89 @@ export const useNotesStore = create<NotesStore>()(
           })),
         })),
 
-      archiveAllNotes: () =>
-        set((state) => ({
-          notes: state.notes.map((note) => ({
-            ...note,
-            isArchived: true,
-            updatedAt: new Date(),
-          })),
-        })),
+      archiveAllNotes: async () => {
+        try {
+          const activeNotes = get().notes.filter((note) => !note.isArchived);
 
-      archiveAllIdeas: () =>
-        set((state) => ({
-          ideas: state.ideas.map((idea) => ({
-            ...idea,
-            isArchived: true,
-            updatedAt: new Date(),
-          })),
-        })),
+          await Promise.all(
+            activeNotes.map((note) =>
+              setRemoteItemArchived(note.id, "note", true),
+            ),
+          );
 
-      unarchiveAllNotes: () =>
-        set((state) => ({
-          notes: state.notes.map((note) =>
-            note.isArchived
-              ? {
-                  ...note,
-                  isArchived: false,
-                  updatedAt: new Date(),
-                }
-              : note,
-          ),
-        })),
+          await get().fetchArchivedItems();
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error
+                ? error.message
+                : "Error al archivar todas las notas",
+          });
+        }
+      },
 
-      unarchiveAllIdeas: () =>
-        set((state) => ({
-          ideas: state.ideas.map((idea) =>
-            idea.isArchived
-              ? {
-                  ...idea,
-                  isArchived: false,
-                  updatedAt: new Date(),
-                }
-              : idea,
-          ),
-        })),
+      archiveAllIdeas: async () => {
+        try {
+          const activeIdeas = get().ideas.filter((idea) => !idea.isArchived);
+
+          await Promise.all(
+            activeIdeas.map((idea) =>
+              setRemoteItemArchived(idea.id, "idea", true),
+            ),
+          );
+
+          await get().fetchArchivedItems();
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error
+                ? error.message
+                : "Error al archivar todas las ideas",
+          });
+        }
+      },
+
+      unarchiveAllNotes: async () => {
+        try {
+          const archivedNotes = get().notes.filter((note) => note.isArchived);
+
+          await Promise.all(
+            archivedNotes.map((note) =>
+              setRemoteItemArchived(note.id, "note", false),
+            ),
+          );
+
+          await get().fetchItems();
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error
+                ? error.message
+                : "Error al desarchivar todas las notas",
+          });
+        }
+      },
+
+      unarchiveAllIdeas: async () => {
+        try {
+          const archivedIdeas = get().ideas.filter((idea) => idea.isArchived);
+
+          await Promise.all(
+            archivedIdeas.map((idea) =>
+              setRemoteItemArchived(idea.id, "idea", false),
+            ),
+          );
+
+          await get().fetchItems();
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error
+                ? error.message
+                : "Error al desarchivar todas las ideas",
+          });
+        }
+      },
 
       deleteAllNotes: async () => {
         try {
@@ -869,10 +1038,10 @@ export const useNotesStore = create<NotesStore>()(
               item.id !== id
                 ? item
                 : {
-                    ...item,
-                    isArchived: true,
-                    updatedAt: now,
-                  },
+                  ...item,
+                  isArchived: true,
+                  updatedAt: now,
+                },
             ),
             tasks: [
               {

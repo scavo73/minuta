@@ -3,7 +3,9 @@ import { create } from "zustand";
 import {
   createFolder as createRemoteFolder,
   deleteFolder as deleteRemoteFolder,
+  getArchives,
   getFolders as getRemoteFolders,
+  setFolderArchived as setRemoteFolderArchived,
   updateFolder as updateRemoteFolder,
   type RemoteFolder,
 } from "../lib/api";
@@ -33,6 +35,7 @@ interface FoldersStore {
   deleteFolder: (id: string) => Promise<void>;
   deleteFolderRecord: (id: string) => Promise<void>;
   fetchFolders: () => Promise<void>;
+  fetchArchivedFolders: () => Promise<void>;
   renameFolder: (id: string, name: string) => Promise<void>;
   unarchiveFolder: (id: string) => Promise<void>;
   updateFolderName: (id: string, name: string) => Promise<void>;
@@ -53,7 +56,7 @@ function normalizeFolder(folder: RemoteFolder): Folder {
     name: folder.name,
     createdAt: parseTime(folder.created_at ?? folder.createdAt),
     updatedAt: updatedAt == null ? undefined : parseTime(updatedAt),
-    isArchived: folder.is_archived ?? folder.isArchived ?? false,
+    isArchived: folder.is_archive ?? folder.isArchive ?? false,
   };
 }
 
@@ -65,7 +68,7 @@ function getRemoteFolderIsArchived(
   folder: RemoteFolder,
   fallback = false,
 ) {
-  return folder.is_archived ?? folder.isArchived ?? fallback;
+  return folder.is_archive ?? folder.isArchive ?? fallback;
 }
 
 export const useFoldersStore = create<FoldersStore>((set, get) => ({
@@ -79,14 +82,25 @@ export const useFoldersStore = create<FoldersStore>((set, get) => ({
 
     if (!folder) return;
 
-    set((state) => ({
-      archivedFolders: sortFolders([
-        { ...folder, isArchived: true, updatedAt: Date.now() },
-        ...state.archivedFolders,
-      ]),
-      error: null,
-      folders: state.folders.filter((item) => item.id !== id),
-    }));
+    try {
+      const archivedFolder = normalizeFolder(
+        await setRemoteFolderArchived(id, true),
+      );
+
+      set((state) => ({
+        archivedFolders: sortFolders([
+          { ...archivedFolder, isArchived: true },
+          ...state.archivedFolders,
+        ]),
+        error: null,
+        folders: state.folders.filter((item) => item.id !== id),
+      }));
+    } catch (error) {
+      set({
+        error:
+          error instanceof Error ? error.message : "Error al archivar carpeta",
+      });
+    }
   },
   createFolder: async (name) => {
     const trimmedName = name.trim();
@@ -177,21 +191,67 @@ export const useFoldersStore = create<FoldersStore>((set, get) => ({
       });
     }
   },
+  fetchArchivedFolders: async () => {
+    try {
+      set({ isLoading: true, error: null });
+
+      const archives = await getArchives();
+      const archivedFolders = archives.folders.map((folder) => ({
+        ...normalizeFolder(folder),
+        isArchived: true,
+      }));
+
+      set((state) => ({
+        archivedFolders: sortFolders(archivedFolders),
+        error: null,
+        folders: state.folders.filter(
+          (folder) =>
+            !archivedFolders.some(
+              (archivedFolder) => archivedFolder.id === folder.id,
+            ),
+        ),
+        isLoading: false,
+      }));
+    } catch (error) {
+      set({
+        error:
+          error instanceof Error
+            ? error.message
+            : "Error al cargar carpetas archivadas",
+        isLoading: false,
+      });
+    }
+  },
+
   renameFolder: async (id, name) => get().updateFolderName(id, name),
   unarchiveFolder: async (id) => {
     const folder = get().archivedFolders.find((item) => item.id === id);
 
     if (!folder) return;
 
-    set((state) => ({
-      archivedFolders: state.archivedFolders.filter((item) => item.id !== id),
-      error: null,
-      folders: sortFolders([
-        { ...folder, isArchived: false, updatedAt: Date.now() },
-        ...state.folders,
-      ]),
-    }));
+    try {
+      const restoredFolder = normalizeFolder(
+        await setRemoteFolderArchived(id, false),
+      );
+
+      set((state) => ({
+        archivedFolders: state.archivedFolders.filter((item) => item.id !== id),
+        error: null,
+        folders: sortFolders([
+          { ...restoredFolder, isArchived: false },
+          ...state.folders,
+        ]),
+      }));
+    } catch (error) {
+      set({
+        error:
+          error instanceof Error
+            ? error.message
+            : "Error al desarchivar carpeta",
+      });
+    }
   },
+
   updateFolderName: async (id, name) => {
     const trimmedName = name.trim();
 
