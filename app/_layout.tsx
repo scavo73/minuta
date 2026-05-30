@@ -23,6 +23,7 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="new-item" />
+        <Stack.Screen name="drafts" />
         <Stack.Screen name="item/[id]" />
         <Stack.Screen name="folder/[id]" />
       </Stack>

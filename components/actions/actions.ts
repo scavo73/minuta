@@ -14,6 +14,7 @@ export type ItemAction =
   | "editFolder"
   | "select"
   | "selectAll"
+  | "viewDrafts"
   | "deleteFolder"
   | "deleteFolderContent"
   | "deleteFolderTasks"
@@ -22,6 +23,7 @@ export type ItemAction =
 
 export interface ActionMenuItem {
   action: ItemAction;
+  disabled?: boolean;
   label: string;
   destructive?: boolean;
 }

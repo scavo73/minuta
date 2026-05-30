@@ -6,6 +6,7 @@ import { useMinutaTheme } from "../../constants/useMinutaTheme";
 import type { ActionMenuItem, ItemAction } from "./actions";
 
 interface ActionMenuButtonProps {
+  badgeCount?: number;
   items: ActionMenuItem[];
   isOpen: boolean;
   onClose: () => void;
@@ -14,6 +15,7 @@ interface ActionMenuButtonProps {
 }
 
 export function ActionMenuButton({
+  badgeCount = 0,
   isOpen,
   items,
   onClose,
@@ -30,6 +32,11 @@ export function ActionMenuButton({
         style={[styles.trigger, { backgroundColor: theme.surface }]}
       >
         <Ionicons color={theme.text} name="ellipsis-horizontal" size={20} />
+        {badgeCount > 0 ? (
+          <View style={[styles.badge, { backgroundColor: theme.primary }]}>
+            <Text style={styles.badgeText}>{badgeCount}</Text>
+          </View>
+        ) : null}
       </Pressable>
 
       <Modal
@@ -43,16 +50,23 @@ export function ActionMenuButton({
             {items.map((item) => (
               <Pressable
                 key={item.action}
+                disabled={item.disabled}
                 onPress={() => {
+                  if (item.disabled) return;
+
                   onClose();
                   onSelect(item.action);
                 }}
-                style={styles.menuItem}
+                style={[
+                  styles.menuItem,
+                  item.disabled ? styles.menuItemDisabled : null,
+                ]}
               >
                 <Text
                   style={[
                     styles.menuText,
                     { color: item.destructive ? "#DC2626" : theme.text },
+                    item.disabled ? { color: theme.mutedText } : null,
                   ]}
                 >
                   {item.label}
@@ -79,6 +93,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingTop: 92,
   },
+  badge: {
+    alignItems: "center",
+    borderRadius: 999,
+    height: 18,
+    justifyContent: "center",
+    minWidth: 18,
+    paddingHorizontal: 4,
+    position: "absolute",
+    right: -5,
+    top: -5,
+  },
+  badgeText: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontWeight: "800",
+    lineHeight: 13,
+  },
   menu: {
     alignSelf: "flex-end",
     borderRadius: radius.md,
@@ -93,6 +124,9 @@ const styles = StyleSheet.create({
   menuItem: {
     paddingHorizontal: spacing.md,
     paddingVertical: 14,
+  },
+  menuItemDisabled: {
+    opacity: 0.62,
   },
   menuText: {
     fontSize: typography.body,

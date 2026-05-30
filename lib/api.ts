@@ -1,5 +1,5 @@
 const BASE_URL =
-    process.env.EXPO_PUBLIC_API_URL ?? "http://192.168.50.70:3000/api";
+    process.env.EXPO_PUBLIC_API_URL ?? "http://192.168.18.34:3000/api";
 
 export type MinutaItemType = "note" | "checklist" | "idea";
 

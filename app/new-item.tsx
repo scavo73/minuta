@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
+  Alert,
   Animated,
   Easing,
   Image,
@@ -18,19 +19,33 @@ import {
   UIManager,
   View,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { z } from "zod";
 
+import { ItemActionsMenu } from "../components/actions/ItemActionsMenu";
+import type { ItemAction } from "../components/actions/actions";
 import { ManageTagsButton } from "../components/ideas/ManageTagsButton";
 import { TagSuggestions } from "../components/ideas/TagSuggestions";
 import { radius, spacing, typography } from "../constants/theme";
 import { useMinutaTheme } from "../constants/useMinutaTheme";
 import { createItem } from "../lib/api";
 import { getUniqueIdeaTags, parseTags } from "../lib/tags";
+import {
+  useDraftsStore,
+  type DraftFormValues,
+  type DraftIdeaValues,
+  type DraftNoteValues,
+  type DraftTaskValues,
+} from "../store/draftsStore";
 import { useFoldersStore } from "../store/foldersStore";
 import { useNotesStore } from "../store/notesStore";
 import type { NoteKind } from "../types";
 
+// Cada tipo de item tiene su propia validacion porque no todos piden los
+// mismos campos: notas usan contenido, tareas usan filas, ideas usan tags/color.
 const noteSchema = z.object({
   title: z.string().min(3, "El título debe tener al menos 3 caracteres"),
   content: z.string().min(1, "El contenido no puede estar vacío"),
@@ -38,9 +53,7 @@ const noteSchema = z.object({
 });
 
 const taskSchema = z.object({
-  tasks: z
-    .array(z.string().min(1))
-    .min(1, "Añade al menos una tarea"),
+  tasks: z.array(z.string().min(1)).min(1, "Añade al menos una tarea"),
 });
 
 const ideaSchema = z.object({
@@ -71,6 +84,83 @@ type FormErrors = Partial<
   Record<"title" | "content" | "text" | "color", string>
 >;
 
+function createEmptyFormValues(
+  initialFolderId: string | null,
+): DraftFormValues {
+  return {
+    note: {
+      title: "",
+      content: "",
+      imageUri: undefined,
+      folderId: initialFolderId,
+    },
+    task: {
+      taskRows: [{ id: "task-1", text: "" }],
+      folderId: initialFolderId,
+    },
+    idea: {
+      title: "",
+      tags: [],
+      tagDraft: "",
+      color: ideaColors[0],
+      folderId: initialFolderId,
+    },
+  };
+}
+
+function normalizeTaskRows(taskRows: DraftTaskValues["taskRows"]) {
+  return taskRows.length > 0 ? taskRows : [{ id: "task-1", text: "" }];
+}
+
+function cloneFormValues(values: DraftFormValues): DraftFormValues {
+  return {
+    note: { ...values.note },
+    task: {
+      ...values.task,
+      taskRows: values.task.taskRows.map((row) => ({ ...row })),
+    },
+    idea: {
+      ...values.idea,
+      tags: [...values.idea.tags],
+    },
+  };
+}
+
+function hasNoteContent(values: DraftNoteValues) {
+  return (
+    values.title.trim().length > 0 ||
+    values.content.trim().length > 0 ||
+    values.imageUri != null
+  );
+}
+
+function hasTaskContent(values: DraftTaskValues) {
+  return values.taskRows.some((task) => task.text.trim().length > 0);
+}
+
+function hasIdeaContent(values: DraftIdeaValues) {
+  return (
+    values.title.trim().length > 0 ||
+    values.tags.length > 0 ||
+    values.tagDraft.trim().length > 0 ||
+    values.color !== ideaColors[0]
+  );
+}
+
+function hasKindContent(kind: NoteKind, values: DraftFormValues[NoteKind]) {
+  if (kind === "note") return hasNoteContent(values as DraftNoteValues);
+  if (kind === "task") return hasTaskContent(values as DraftTaskValues);
+  return hasIdeaContent(values as DraftIdeaValues);
+}
+
+function valuesEqual(
+  kind: NoteKind,
+  a: DraftFormValues[NoteKind],
+  b: DraftFormValues[NoteKind],
+) {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
 function configureLayoutTransition() {
   LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
 }
@@ -93,6 +183,8 @@ interface TypeTabsProps {
   selectedKind: NoteKind;
 }
 
+// Estas tres opciones son las que dividen el formulario en Nota, Tarea o Idea.
+// El valor elegido se guarda en el estado `kind`.
 const typeTabs = [
   {
     icon: "document-text-outline",
@@ -147,7 +239,10 @@ function FormRow({ children, label, verticalAlign = "center" }: FormRowProps) {
         <Text style={[styles.rowColon, { color: theme.mutedText }]}>:</Text>
       </View>
       <View
-        style={[styles.rowContent, isCentered ? styles.rowContentCentered : null]}
+        style={[
+          styles.rowContent,
+          isCentered ? styles.rowContentCentered : null,
+        ]}
       >
         {children}
       </View>
@@ -290,6 +385,7 @@ export default function NuevaNotaScreen() {
   const { theme } = useMinutaTheme();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
+    draftId?: string;
     folderId?: string;
     kind?: NoteKind;
     mode?: "locked" | "picker";
@@ -297,43 +393,93 @@ export default function NuevaNotaScreen() {
   const folders = useFoldersStore((state) => state.folders);
   const ideas = useNotesStore((state) => state.ideas);
   const fetchItems = useNotesStore((state) => state.fetchItems);
+  const drafts = useDraftsStore((state) => state.drafts);
+  const deleteDraft = useDraftsStore((state) => state.deleteDraft);
+  const getDraftById = useDraftsStore((state) => state.getDraftById);
+  const upsertDraft = useDraftsStore((state) => state.upsertDraft);
+  const draftId = Array.isArray(params.draftId)
+    ? params.draftId[0]
+    : params.draftId;
+  const draft = draftId ? getDraftById(draftId) : undefined;
+  // La pantalla puede abrirse ya enfocada a un tipo concreto desde cada tab.
+  // Ejemplo: desde Tareas llega `kind=task`; desde Ideas llega `kind=idea`.
   const initialKind =
-    params.kind === "task" || params.kind === "idea" || params.kind === "note"
+    draft?.kind ??
+    (params.kind === "task" || params.kind === "idea" || params.kind === "note"
       ? params.kind
-      : "note";
+      : "note");
   const initialFolderId =
     typeof params.folderId === "string" && params.folderId.length > 0
       ? params.folderId
       : null;
-  const isKindLocked = params.mode === "locked";
+  const isEditingDraft = draft != null;
+  const isKindLocked = params.mode === "locked" || isEditingDraft;
+  // `kind` es la llave principal de esta pantalla: decide que campos se ven,
+  // que validacion se usa y que tipo se envia a la API al guardar.
   const [kind, setKind] = useState<NoteKind>(initialKind);
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
-  const [imageUri, setImageUri] = useState<string | undefined>();
-  const [taskRows, setTaskRows] = useState([{ id: "task-1", text: "" }]);
-  const [tags, setTags] = useState<string[]>([]);
-  const [tagDraft, setTagDraft] = useState("");
-  const [color, setColor] = useState(ideaColors[0]);
-  const [folderId, setFolderId] = useState<string | null>(initialFolderId);
+  const [forms, setForms] = useState<DraftFormValues>(() => {
+    const initialForms = createEmptyFormValues(initialFolderId);
+
+    if (!draft) return initialForms;
+
+    return {
+      ...initialForms,
+      [draft.kind]:
+        draft.kind === "task"
+          ? {
+              ...(draft.values as DraftTaskValues),
+              taskRows: normalizeTaskRows(
+                (draft.values as DraftTaskValues).taskRows,
+              ),
+            }
+          : draft.values,
+    };
+  });
+  const [draftBaseline, setDraftBaseline] = useState<DraftFormValues | null>(
+    () =>
+      draft
+        ? cloneFormValues({
+            ...createEmptyFormValues(initialFolderId),
+            [draft.kind]:
+              draft.kind === "task"
+                ? {
+                    ...(draft.values as DraftTaskValues),
+                    taskRows: normalizeTaskRows(
+                      (draft.values as DraftTaskValues).taskRows,
+                    ),
+                  }
+                : draft.values,
+          })
+        : null,
+  );
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const taskInputRefs = useRef<Record<string, TextInput | null>>({});
   const availableTags = getUniqueIdeaTags(ideas);
+  const noteForm = forms.note;
+  const taskForm = forms.task;
+  const ideaForm = forms.idea;
   const hasNoteChanges =
-    title.trim().length > 0 ||
-    content.trim().length > 0 ||
-    imageUri != null ||
-    folderId !== initialFolderId;
+    noteForm.title.trim().length > 0 ||
+    noteForm.content.trim().length > 0 ||
+    noteForm.imageUri != null ||
+    noteForm.folderId !== initialFolderId;
   const hasTaskChanges =
-    taskRows.some((task) => task.text.trim().length > 0) ||
-    folderId !== initialFolderId;
+    taskForm.taskRows.some((task) => task.text.trim().length > 0) ||
+    taskForm.folderId !== initialFolderId;
   const hasIdeaChanges =
-    title.trim().length > 0 ||
-    tags.length > 0 ||
-    tagDraft.trim().length > 0 ||
-    color !== ideaColors[0] ||
-    folderId !== initialFolderId;
+    ideaForm.title.trim().length > 0 ||
+    ideaForm.tags.length > 0 ||
+    ideaForm.tagDraft.trim().length > 0 ||
+    ideaForm.color !== ideaColors[0] ||
+    ideaForm.folderId !== initialFolderId;
+  const draftHasUnsavedChanges =
+    draftBaseline == null
+      ? false
+      : !valuesEqual(kind, forms[kind], draftBaseline[kind]);
+
+  // El boton de guardar/limpiar mira solo los cambios del tipo activo.
   const hasCurrentKindChanges =
     kind === "task"
       ? hasTaskChanges
@@ -343,8 +489,28 @@ export default function NuevaNotaScreen() {
   const selectedKindLabel =
     typeTabs.find((option) => option.value === kind)?.label ?? "Nueva";
   const isCreationModeActive = isKindLocked || isEditing;
-  const headerTitle = isCreationModeActive ? selectedKindLabel : "Nueva";
+  const headerTitle = isEditingDraft
+    ? `Borrador ${selectedKindLabel.toLowerCase()}`
+    : isCreationModeActive
+      ? selectedKindLabel
+      : "Nueva";
   const shouldShowClearButton = hasCurrentKindChanges;
+  const hasDrafts = drafts.length > 0;
+  const draftsCount = drafts.length;
+  const draftMenuItems = hasDrafts
+    ? [
+        {
+          action: "viewDrafts" as const,
+          label: `(${draftsCount}) Ver borradores`,
+        },
+      ]
+    : [
+        {
+          action: "viewDrafts" as const,
+          disabled: true,
+          label: "No hay borradores",
+        },
+      ];
 
   const startEditing = () => {
     if (isEditing) return;
@@ -359,7 +525,68 @@ export default function NuevaNotaScreen() {
     setIsEditing(false);
   };
 
+  const saveKindAsDraft = (draftKind: NoteKind, id?: string) => {
+    if (!hasKindContent(draftKind, forms[draftKind])) return id ?? "";
+
+    return upsertDraft({
+      id,
+      kind: draftKind,
+      values: forms[draftKind],
+    });
+  };
+
+  const saveOtherKindsAsDrafts = () => {
+    (["note", "task", "idea"] as const).forEach((draftKind) => {
+      if (draftKind === kind) return;
+
+      saveKindAsDraft(draftKind);
+    });
+  };
+
+  const handleDraftBackPress = () => {
+    if (!draftId) {
+      router.back();
+      return;
+    }
+
+    Alert.alert(
+      "Cerrar borrador",
+      "Tienes cambios sin guardar en este borrador.\n\n¿Qué quieres hacer?",
+      [
+        {
+          text: "Guardar borrador",
+          onPress: () => {
+            const nextDraftId = saveKindAsDraft(kind, draftId);
+
+            if (nextDraftId) {
+              setDraftBaseline(cloneFormValues(forms));
+            }
+
+            router.back();
+          },
+        },
+        {
+          text: "Eliminar borrador",
+          style: "destructive",
+          onPress: () => {
+            deleteDraft(draftId);
+            router.back();
+          },
+        },
+        {
+          text: "Cancelar",
+          style: "cancel",
+        },
+      ],
+    );
+  };
+
   const handleHeaderBackPress = () => {
+    if (isEditingDraft) {
+      handleDraftBackPress();
+      return;
+    }
+
     if (isKindLocked) {
       router.back();
       return;
@@ -376,55 +603,91 @@ export default function NuevaNotaScreen() {
   const clearForm = () => {
     configureLayoutTransition();
     startEditing();
-    setTitle("");
-    setContent("");
-    setImageUri(undefined);
-    setTaskRows([{ id: "task-1", text: "" }]);
-    setTags([]);
-    setTagDraft("");
-    setColor(ideaColors[0]);
-    setFolderId(null);
+    setForms((currentForms) => ({
+      ...currentForms,
+      [kind]: createEmptyFormValues(null)[kind],
+    }));
     setErrors({});
+  };
+
+  const handleMenuAction = (action: ItemAction) => {
+    if (action === "viewDrafts") {
+      router.push("/drafts");
+    }
+  };
+
+  const updateNoteForm = (updates: Partial<DraftNoteValues>) => {
+    startEditing();
+    setForms((currentForms) => ({
+      ...currentForms,
+      note: {
+        ...currentForms.note,
+        ...updates,
+      },
+    }));
+  };
+
+  const updateTaskForm = (updates: Partial<DraftTaskValues>) => {
+    startEditing();
+    setForms((currentForms) => ({
+      ...currentForms,
+      task: {
+        ...currentForms.task,
+        ...updates,
+      },
+    }));
+  };
+
+  const updateIdeaForm = (updates: Partial<DraftIdeaValues>) => {
+    startEditing();
+    setForms((currentForms) => ({
+      ...currentForms,
+      idea: {
+        ...currentForms.idea,
+        ...updates,
+      },
+    }));
   };
 
   const addTags = (nextTags: string[]) => {
     if (nextTags.length === 0) return;
 
-    startEditing();
-    setTags((currentTags) => {
-      const existingTags = new Set(
-        currentTags.map((tag) => tag.trim().toLowerCase()),
-      );
-      const mergedTags = [...currentTags];
+    updateIdeaForm({
+      tags: (() => {
+        const currentTags = ideaForm.tags;
+        const existingTags = new Set(
+          currentTags.map((tag) => tag.trim().toLowerCase()),
+        );
+        const mergedTags = [...currentTags];
 
-      nextTags.forEach((tag) => {
-        const trimmedTag = tag.trim();
-        const key = trimmedTag.toLowerCase();
+        nextTags.forEach((tag) => {
+          const trimmedTag = tag.trim();
+          const key = trimmedTag.toLowerCase();
 
-        if (!trimmedTag || existingTags.has(key)) return;
+          if (!trimmedTag || existingTags.has(key)) return;
 
-        existingTags.add(key);
-        mergedTags.push(trimmedTag);
-      });
+          existingTags.add(key);
+          mergedTags.push(trimmedTag);
+        });
 
-      return mergedTags;
+        return mergedTags;
+      })(),
     });
   };
 
   const removeTag = (tag: string) => {
     const key = tag.toLowerCase();
 
-    startEditing();
-    setTags((currentTags) =>
-      currentTags.filter((item) => item.toLowerCase() !== key),
-    );
+    updateIdeaForm({
+      tags: ideaForm.tags.filter((item) => item.toLowerCase() !== key),
+    });
   };
 
   const commitTagDraft = () => {
-    const nextTags = parseTags(tagDraft);
+    const nextTags = parseTags(ideaForm.tagDraft);
 
     addTags(nextTags);
-    setTagDraft("");
+    updateIdeaForm({ tagDraft: "" });
 
     return nextTags;
   };
@@ -433,7 +696,7 @@ export default function NuevaNotaScreen() {
     startEditing();
 
     if (!value.includes(",")) {
-      setTagDraft(value);
+      updateIdeaForm({ tagDraft: value });
       return;
     }
 
@@ -441,14 +704,14 @@ export default function NuevaNotaScreen() {
     const completedTags = parseTags(parts.slice(0, -1).join(","));
 
     addTags(completedTags);
-    setTagDraft(parts[parts.length - 1] ?? "");
+    updateIdeaForm({ tagDraft: parts[parts.length - 1] ?? "" });
   };
 
   const getIdeaTags = () => {
-    const draftTags = parseTags(tagDraft);
+    const draftTags = parseTags(ideaForm.tagDraft);
     const existingTags = new Set<string>();
 
-    return [...tags, ...draftTags].filter((tag) => {
+    return [...ideaForm.tags, ...draftTags].filter((tag) => {
       const key = tag.toLowerCase();
 
       if (existingTags.has(key)) return false;
@@ -459,23 +722,33 @@ export default function NuevaNotaScreen() {
   };
 
   const updateTaskRow = (id: string, text: string) => {
-    startEditing();
-    setTaskRows((rows) =>
-      rows.map((row) => (row.id === id ? { ...row, text } : row)),
-    );
+    updateTaskForm({
+      taskRows: taskForm.taskRows.map((row) =>
+        row.id === id ? { ...row, text } : row,
+      ),
+    });
   };
 
   const addTaskRowAfter = (id: string) => {
     const nextId = `task-${Date.now()}`;
 
     startEditing();
-    setTaskRows((rows) => {
-      const index = rows.findIndex((row) => row.id === id);
-      const insertIndex = index < 0 ? rows.length : index + 1;
-      const nextRows = [...rows];
+    setForms((currentForms) => {
+      const index = currentForms.task.taskRows.findIndex(
+        (row) => row.id === id,
+      );
+      const insertIndex =
+        index < 0 ? currentForms.task.taskRows.length : index + 1;
+      const nextRows = [...currentForms.task.taskRows];
 
       nextRows.splice(insertIndex, 0, { id: nextId, text: "" });
-      return nextRows;
+      return {
+        ...currentForms,
+        task: {
+          ...currentForms.task,
+          taskRows: nextRows,
+        },
+      };
     });
 
     setTimeout(() => {
@@ -484,32 +757,32 @@ export default function NuevaNotaScreen() {
   };
 
   const removeTaskRow = (id: string) => {
-    startEditing();
-    setTaskRows((rows) => {
-      if (rows.length === 1) {
-        return [{ ...rows[0], text: "" }];
-      }
+    const nextRows =
+      taskForm.taskRows.length === 1
+        ? [{ ...taskForm.taskRows[0], text: "" }]
+        : taskForm.taskRows.filter((row) => row.id !== id);
 
-      return rows.filter((row) => row.id !== id);
-    });
+    updateTaskForm({ taskRows: nextRows });
   };
 
   const handleTaskKeyPress = (id: string, key: string) => {
     if (key !== "Backspace") return;
 
-    const rowIndex = taskRows.findIndex((row) => row.id === id);
-    const row = taskRows[rowIndex];
+    const rowIndex = taskForm.taskRows.findIndex((row) => row.id === id);
+    const row = taskForm.taskRows[rowIndex];
 
     if (!row || row.text.length > 0 || rowIndex <= 0) {
       return;
     }
 
-    const previousRowId = taskRows[rowIndex - 1]?.id;
+    const previousRowId = taskForm.taskRows[rowIndex - 1]?.id;
 
     if (!previousRowId) return;
 
     startEditing();
-    setTaskRows((rows) => rows.filter((item) => item.id !== id));
+    updateTaskForm({
+      taskRows: taskForm.taskRows.filter((item) => item.id !== id),
+    });
 
     setTimeout(() => {
       taskInputRefs.current[previousRowId]?.focus();
@@ -530,98 +803,134 @@ export default function NuevaNotaScreen() {
     });
 
     if (!result.canceled) {
-      startEditing();
-      setImageUri(result.assets[0]?.uri);
+      updateNoteForm({ imageUri: result.assets[0]?.uri });
     }
   };
 
-  const handleSubmit = async () => {
-    if (isSubmitting) return;
-
-    try {
-      setIsSubmitting(true);
-      setErrors({});
-
-      if (kind === "note") {
-        const result = noteSchema.safeParse({
-          title: title.trim(),
-          content: content.trim(),
-          imageUri,
-        });
-
-        if (!result.success) {
-          setErrors(getValidationErrors(result.error));
-          return;
-        }
-
-        await createItem({
-          title: result.data.title,
-          type: "note",
-          content: result.data.content,
-          image_url: result.data.imageUri?.startsWith("http")
-            ? result.data.imageUri
-            : undefined,
-          folder_id: folderId,
-          folderId,
-        });
-
-        await fetchItems();
-        router.back();
-        return;
-      }
-
-      if (kind === "task") {
-        const validTasks = taskRows
-          .map((task) => task.text.trim())
-          .filter(Boolean);
-        const result = taskSchema.safeParse({
-          tasks: validTasks,
-        });
-
-        if (!result.success) {
-          setErrors(getValidationErrors(result.error));
-          return;
-        }
-
-        await Promise.all(
-          result.data.tasks.map((taskText) =>
-            createItem({
-              title: taskText,
-              type: "checklist",
-              content: taskText,
-              text: taskText,
-              folder_id: folderId,
-              folderId,
-            }),
-          ),
-        );
-
-        await fetchItems();
-        router.back();
-        return;
-      }
-
-      const ideaTags = getIdeaTags();
-
-      const result = ideaSchema.safeParse({
-        title: title.trim(),
-        tags: ideaTags,
-        color,
+  const validateCurrentKind = () => {
+    if (kind === "note") {
+      const result = noteSchema.safeParse({
+        title: noteForm.title.trim(),
+        content: noteForm.content.trim(),
+        imageUri: noteForm.imageUri,
       });
 
       if (!result.success) {
         setErrors(getValidationErrors(result.error));
-        return;
+        return false;
       }
 
-      await createItem({
-        title: result.data.title,
-        type: "idea",
-        color: result.data.color,
-        tags: result.data.tags ?? [],
-        folder_id: folderId,
-        folderId,
+      return true;
+    }
+
+    if (kind === "task") {
+      const validTasks = taskForm.taskRows
+        .map((task) => task.text.trim())
+        .filter(Boolean);
+      const result = taskSchema.safeParse({
+        tasks: validTasks,
       });
+
+      if (!result.success) {
+        setErrors(getValidationErrors(result.error));
+        return false;
+      }
+
+      return true;
+    }
+
+    const result = ideaSchema.safeParse({
+      title: ideaForm.title.trim(),
+      tags: getIdeaTags(),
+      color: ideaForm.color,
+    });
+
+    if (!result.success) {
+      setErrors(getValidationErrors(result.error));
+      return false;
+    }
+
+    return true;
+  };
+
+  const createCurrentItem = async () => {
+    // Rama Nota: valida titulo/contenido/imagen y crea un recurso `note`.
+    if (kind === "note") {
+      const result = noteSchema.parse({
+        title: noteForm.title.trim(),
+        content: noteForm.content.trim(),
+        imageUri: noteForm.imageUri,
+      });
+
+      await createItem({
+        title: result.title,
+        type: "note",
+        content: result.content,
+        image_url: result.imageUri?.startsWith("http")
+          ? result.imageUri
+          : undefined,
+        folder_id: noteForm.folderId,
+        folderId: noteForm.folderId,
+      });
+
+      return;
+    }
+
+    // Rama Tarea: cada fila escrita se guarda como una tarea independiente.
+    if (kind === "task") {
+      const result = taskSchema.parse({
+        tasks: taskForm.taskRows
+          .map((task) => task.text.trim())
+          .filter(Boolean),
+      });
+
+      await Promise.all(
+        result.tasks.map((taskText) =>
+          createItem({
+            title: taskText,
+            type: "checklist",
+            content: taskText,
+            text: taskText,
+            folder_id: taskForm.folderId,
+            folderId: taskForm.folderId,
+          }),
+        ),
+      );
+
+      return;
+    }
+
+    // Rama Idea: si no es nota ni tarea, se guarda como idea con tags/color.
+    const result = ideaSchema.parse({
+      title: ideaForm.title.trim(),
+      tags: getIdeaTags(),
+      color: ideaForm.color,
+    });
+
+    await createItem({
+      title: result.title,
+      type: "idea",
+      color: result.color,
+      tags: result.tags ?? [],
+      folder_id: ideaForm.folderId,
+      folderId: ideaForm.folderId,
+    });
+  };
+
+  const finishSubmit = async (options?: { saveOtherDrafts?: boolean }) => {
+    try {
+      setIsSubmitting(true);
+      setErrors({});
+
+      await createCurrentItem();
+
+      if (options?.saveOtherDrafts) {
+        saveOtherKindsAsDrafts();
+      }
+
+      if (draftId) {
+        deleteDraft(draftId);
+      }
 
       await fetchItems();
       router.back();
@@ -634,6 +943,48 @@ export default function NuevaNotaScreen() {
     }
   };
 
+  const handleSubmit = async () => {
+    if (isSubmitting) return;
+
+    setErrors({});
+
+    if (!validateCurrentKind()) return;
+
+    const pendingOtherKinds = (["note", "task", "idea"] as const).filter(
+      (draftKind) =>
+        draftKind !== kind && hasKindContent(draftKind, forms[draftKind]),
+    );
+
+    if (!isKindLocked && pendingOtherKinds.length > 0) {
+      Alert.alert(
+        "Hay otros items pendientes",
+        "Tienes contenido escrito en otros tipos. Elige que hacer antes de guardar.",
+        [
+          {
+            text: "Guardar otros como borrador",
+            onPress: () => {
+              void finishSubmit({ saveOtherDrafts: true });
+            },
+          },
+          {
+            text: "Eliminar otros y guardar solo este",
+            style: "destructive",
+            onPress: () => {
+              void finishSubmit();
+            },
+          },
+          {
+            text: "Cancelar",
+            style: "cancel",
+          },
+        ],
+      );
+      return;
+    }
+
+    await finishSubmit();
+  };
+
   const renderFolderOptions = () => {
     if (folders.length === 0) {
       return null;
@@ -642,14 +993,24 @@ export default function NuevaNotaScreen() {
     return (
       <View style={styles.inlineOptions}>
         {folders.map((folder) => {
-          const isSelected = folderId === folder.id;
+          const activeFolderId = forms[kind].folderId;
+          const isSelected = activeFolderId === folder.id;
 
           return (
             <Pressable
               key={folder.id}
               onPress={() => {
-                startEditing();
-                setFolderId(isSelected ? null : folder.id);
+                if (kind === "note") {
+                  updateNoteForm({ folderId: isSelected ? null : folder.id });
+                  return;
+                }
+
+                if (kind === "task") {
+                  updateTaskForm({ folderId: isSelected ? null : folder.id });
+                  return;
+                }
+
+                updateIdeaForm({ folderId: isSelected ? null : folder.id });
               }}
               style={[
                 styles.folderChip,
@@ -717,6 +1078,13 @@ export default function NuevaNotaScreen() {
             {headerTitle}
           </Text>
           <View style={styles.headerActions}>
+            {!isEditingDraft ? (
+              <ItemActionsMenu
+                badgeCount={draftsCount}
+                items={draftMenuItems}
+                onSelect={handleMenuAction}
+              />
+            ) : null}
             <AnimatedHeaderAction
               delay={TRASH_ENTER_DELAY}
               visible={shouldShowClearButton}
@@ -724,9 +1092,16 @@ export default function NuevaNotaScreen() {
               <Pressable
                 accessibilityLabel="Limpiar formulario"
                 onPress={clearForm}
-                style={[styles.headerButton, { backgroundColor: theme.surface }]}
+                style={[
+                  styles.headerButton,
+                  { backgroundColor: theme.surface },
+                ]}
               >
-                <Ionicons color={theme.mutedText} name="trash-outline" size={20} />
+                <Ionicons
+                  color={theme.mutedText}
+                  name="trash-outline"
+                  size={20}
+                />
               </Pressable>
             </AnimatedHeaderAction>
             <AnimatedHeaderAction visible={hasCurrentKindChanges}>
@@ -737,9 +1112,7 @@ export default function NuevaNotaScreen() {
                 style={[
                   styles.headerButton,
                   {
-                    backgroundColor: isSubmitting
-                      ? theme.mutedText
-                      : "#22C55E",
+                    backgroundColor: isSubmitting ? theme.mutedText : "#22C55E",
                   },
                 ]}
               >
@@ -765,16 +1138,17 @@ export default function NuevaNotaScreen() {
           ]}
           keyboardShouldPersistTaps="handled"
         >
+          {/* Solo las notas permiten adjuntar imagen. */}
           {kind === "note" ? (
             <Pressable
-              onPress={imageUri ? undefined : pickImage}
+              onPress={noteForm.imageUri ? undefined : pickImage}
               style={[styles.imagePicker, { borderColor: theme.mutedText }]}
             >
-              {imageUri ? (
+              {noteForm.imageUri ? (
                 <>
                   <Image
                     resizeMode="cover"
-                    source={{ uri: imageUri }}
+                    source={{ uri: noteForm.imageUri }}
                     style={styles.imagePreview}
                   />
                   <View style={styles.imageOverlay}>
@@ -786,18 +1160,14 @@ export default function NuevaNotaScreen() {
                       ]}
                     >
                       <Text
-                        style={[
-                          styles.imageActionText,
-                          { color: theme.text },
-                        ]}
+                        style={[styles.imageActionText, { color: theme.text }]}
                       >
                         Cambiar
                       </Text>
                     </Pressable>
                     <Pressable
                       onPress={() => {
-                        startEditing();
-                        setImageUri(undefined);
+                        updateNoteForm({ imageUri: undefined });
                       }}
                       style={[
                         styles.imageActionButton,
@@ -805,10 +1175,7 @@ export default function NuevaNotaScreen() {
                       ]}
                     >
                       <Text
-                        style={[
-                          styles.imageActionText,
-                          { color: theme.text },
-                        ]}
+                        style={[styles.imageActionText, { color: theme.text }]}
                       >
                         Quitar
                       </Text>
@@ -836,18 +1203,23 @@ export default function NuevaNotaScreen() {
           ) : null}
 
           <View style={styles.form}>
+            {/* Notas e ideas tienen titulo; las tareas solo usan texto por fila. */}
             {kind !== "task" ? (
               <>
                 <FormRow label="Título">
                   <TextInput
                     onChangeText={(value) => {
-                      startEditing();
-                      setTitle(value);
+                      if (kind === "note") {
+                        updateNoteForm({ title: value });
+                        return;
+                      }
+
+                      updateIdeaForm({ title: value });
                     }}
                     onFocus={startEditing}
                     placeholder=""
                     style={[styles.rowInput, { color: theme.text }]}
-                    value={title}
+                    value={kind === "note" ? noteForm.title : ideaForm.title}
                   />
                 </FormRow>
                 {errors.title ? (
@@ -856,6 +1228,7 @@ export default function NuevaNotaScreen() {
               </>
             ) : null}
 
+            {/* Campos exclusivos de nota. */}
             {kind === "note" ? (
               <>
                 <View
@@ -865,9 +1238,7 @@ export default function NuevaNotaScreen() {
                   ]}
                 >
                   <View style={styles.rowLabelColumn}>
-                    <Text
-                      style={[styles.rowLabel, { color: theme.mutedText }]}
-                    >
+                    <Text style={[styles.rowLabel, { color: theme.mutedText }]}>
                       Contenido
                     </Text>
                     <Text style={[styles.rowColon, { color: theme.mutedText }]}>
@@ -877,8 +1248,7 @@ export default function NuevaNotaScreen() {
                   <TextInput
                     multiline
                     onChangeText={(value) => {
-                      startEditing();
-                      setContent(value);
+                      updateNoteForm({ content: value });
                     }}
                     onFocus={startEditing}
                     placeholder=""
@@ -889,7 +1259,7 @@ export default function NuevaNotaScreen() {
                       { color: theme.text },
                     ]}
                     textAlignVertical="top"
-                    value={content}
+                    value={noteForm.content}
                   />
                 </View>
                 {errors.content ? (
@@ -898,6 +1268,7 @@ export default function NuevaNotaScreen() {
               </>
             ) : null}
 
+            {/* Campos exclusivos de tarea. Una pantalla puede crear varias tareas. */}
             {kind === "task" ? (
               <>
                 <View
@@ -927,7 +1298,7 @@ export default function NuevaNotaScreen() {
                     </Text>
                   </View>
                   <View style={styles.taskRows}>
-                    {taskRows.map((taskRow, index) => (
+                    {taskForm.taskRows.map((taskRow, index) => (
                       <View key={taskRow.id} style={styles.taskEntryRow}>
                         <View
                           style={[
@@ -956,7 +1327,8 @@ export default function NuevaNotaScreen() {
                           style={[styles.taskEntryInput, { color: theme.text }]}
                           value={taskRow.text}
                         />
-                        {taskRows.length > 1 || taskRow.text.length > 0 ? (
+                        {taskForm.taskRows.length > 1 ||
+                        taskRow.text.length > 0 ? (
                           <Pressable
                             accessibilityLabel="Eliminar tarea"
                             onPress={() => removeTaskRow(taskRow.id)}
@@ -983,36 +1355,40 @@ export default function NuevaNotaScreen() {
               {renderFolderOptions()}
             </FormRow>
 
+            {/* Campos exclusivos de idea. */}
             {kind === "idea" ? (
               <>
                 <FormRow label="Tags" verticalAlign="start">
                   <View style={styles.tagsEditor}>
-                    {tags.length > 0 ? (
-                      tags.map((tag) => (
-                        <Pressable
-                          key={tag}
-                          onPress={() => removeTag(tag)}
-                          style={[
-                            styles.tagChip,
-                            {
-                              backgroundColor: theme.surface,
-                              borderColor: theme.mutedText,
-                            },
-                          ]}
-                        >
-                          <Text
-                            style={[styles.tagChipText, { color: theme.text }]}
+                    {ideaForm.tags.length > 0
+                      ? ideaForm.tags.map((tag) => (
+                          <Pressable
+                            key={tag}
+                            onPress={() => removeTag(tag)}
+                            style={[
+                              styles.tagChip,
+                              {
+                                backgroundColor: theme.surface,
+                                borderColor: theme.mutedText,
+                              },
+                            ]}
                           >
-                            {tag}
-                          </Text>
-                          <Ionicons
-                            color={theme.mutedText}
-                            name="close"
-                            size={13}
-                          />
-                        </Pressable>
-                      ))
-                    ) : null}
+                            <Text
+                              style={[
+                                styles.tagChipText,
+                                { color: theme.text },
+                              ]}
+                            >
+                              {tag}
+                            </Text>
+                            <Ionicons
+                              color={theme.mutedText}
+                              name="close"
+                              size={13}
+                            />
+                          </Pressable>
+                        ))
+                      : null}
                     <TextInput
                       blurOnSubmit={false}
                       onBlur={commitTagDraft}
@@ -1020,13 +1396,14 @@ export default function NuevaNotaScreen() {
                       onFocus={startEditing}
                       onSubmitEditing={commitTagDraft}
                       placeholder={
-                        tags.length === 0 && tagDraft.length === 0
+                        ideaForm.tags.length === 0 &&
+                        ideaForm.tagDraft.length === 0
                           ? "comida, vuelos, etc"
                           : ""
                       }
                       placeholderTextColor={theme.mutedText}
                       style={[styles.tagInput, { color: theme.text }]}
-                      value={tagDraft}
+                      value={ideaForm.tagDraft}
                     />
                   </View>
                 </FormRow>
@@ -1043,10 +1420,9 @@ export default function NuevaNotaScreen() {
                   />
                   <TagSuggestions
                     availableTags={availableTags}
-                    selectedTags={tags}
+                    selectedTags={ideaForm.tags}
                     onChange={(nextTags) => {
-                      startEditing();
-                      setTags(nextTags);
+                      updateIdeaForm({ tags: nextTags });
                     }}
                     variant="large"
                   />
@@ -1058,15 +1434,16 @@ export default function NuevaNotaScreen() {
                         key={option}
                         accessibilityLabel={`Color ${option}`}
                         onPress={() => {
-                          startEditing();
-                          setColor(option);
+                          updateIdeaForm({ color: option });
                         }}
                         style={[
                           styles.swatch,
                           {
                             backgroundColor: option,
                             borderColor:
-                              color === option ? theme.text : "transparent",
+                              ideaForm.color === option
+                                ? theme.text
+                                : "transparent",
                           },
                         ]}
                       />
