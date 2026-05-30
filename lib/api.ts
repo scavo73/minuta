@@ -1,7 +1,7 @@
 import { getToken } from "./authStorage";
 
 const BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL ?? "http://192.168.18.34:3000/api";
+  process.env.EXPO_PUBLIC_API_URL ?? "https://minuta-api.vercel.app/api";
 
 export type MinutaItemType = "note" | "checklist" | "idea";
 
