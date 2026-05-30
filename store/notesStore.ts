@@ -206,37 +206,38 @@ export const useNotesStore = create<NotesStore>()(
 
           const items = await getItems();
           const currentState = get();
+          const activeNotes = items
+            .filter((item) => item.type === "note")
+            .map((item) => mapRemoteNoteToLocal(item, false));
+          const activeIdeas = items
+            .filter((item) => item.type === "idea")
+            .map((item) => mapRemoteIdeaToLocal(item, false));
+          const activeTasks = items
+            .filter((item) => item.type === "checklist")
+            .map((item) => mapRemoteChecklistToLocal(item, false));
+          const activeNoteIds = new Set(activeNotes.map((note) => note.id));
+          const activeIdeaIds = new Set(activeIdeas.map((idea) => idea.id));
+          const activeTaskIds = new Set(activeTasks.map((task) => task.id));
 
           set({
-            notes: items
-              .filter((item) => item.type === "note")
-              .map((item) =>
-                mapRemoteNoteToLocal(
-                  item,
-                  currentState.notes.find((note) => note.id === item.id)
-                    ?.isArchived,
-                ),
+            notes: sortByRecent([
+              ...activeNotes,
+              ...currentState.notes.filter(
+                (note) => note.isArchived && !activeNoteIds.has(note.id),
               ),
-
-            ideas: items
-              .filter((item) => item.type === "idea")
-              .map((item) =>
-                mapRemoteIdeaToLocal(
-                  item,
-                  currentState.ideas.find((idea) => idea.id === item.id)
-                    ?.isArchived,
-                ),
+            ]),
+            ideas: sortByRecent([
+              ...activeIdeas,
+              ...currentState.ideas.filter(
+                (idea) => idea.isArchived && !activeIdeaIds.has(idea.id),
               ),
-
-            tasks: items
-              .filter((item) => item.type === "checklist")
-              .map((item) =>
-                mapRemoteChecklistToLocal(
-                  item,
-                  currentState.tasks.find((task) => task.id === item.id)
-                    ?.isArchived,
-                ),
+            ]),
+            tasks: sortByRecent([
+              ...activeTasks,
+              ...currentState.tasks.filter(
+                (task) => task.isArchived && !activeTaskIds.has(task.id),
               ),
+            ]),
 
             isLoading: false,
             error: null,

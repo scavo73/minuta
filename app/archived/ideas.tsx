@@ -20,6 +20,7 @@ import {
   ALL_FOLDERS_ID,
   buildFolderChips,
   type FolderFilterId,
+  getFoldersVisibleInArchive,
   groupItemsByFolder,
   matchesFolderFilter,
 } from "../../lib/folders";
@@ -46,7 +47,11 @@ export default function ArchivedIdeasScreen() {
   const [selectedFolderId, setSelectedFolderId] =
     useState<FolderFilterId>(ALL_FOLDERS_ID);
   const folders = useFoldersStore((state) => state.folders);
+  const archivedFolders = useFoldersStore((state) => state.archivedFolders);
   const fetchFolders = useFoldersStore((state) => state.fetchFolders);
+  const fetchArchivedFolders = useFoldersStore(
+    (state) => state.fetchArchivedFolders,
+  );
   const ideas = useNotesStore((state) => state.ideas);
   const fetchItems = useNotesStore((state) => state.fetchItems);
   const fetchArchivedItems = useNotesStore((state) => state.fetchArchivedItems);
@@ -57,11 +62,21 @@ export default function ArchivedIdeasScreen() {
   const unarchiveAllIdeas = useNotesStore((state) => state.unarchiveAllIdeas);
   const unarchiveIdea = useNotesStore((state) => state.unarchiveIdea);
   const allArchivedIdeas = ideas.filter((idea) => idea.isArchived);
-  const folderChips = buildFolderChips(folders, { ideas: allArchivedIdeas });
+  const foldersVisibleInArchive = getFoldersVisibleInArchive(
+    folders,
+    archivedFolders,
+    { ideas: allArchivedIdeas },
+  );
+  const folderChips = buildFolderChips(foldersVisibleInArchive, {
+    ideas: allArchivedIdeas,
+  });
   const archivedIdeas = allArchivedIdeas.filter((idea) =>
     matchesFolderFilter(idea, selectedFolderId),
   );
-  const groupedArchivedIdeas = groupItemsByFolder(allArchivedIdeas, folders);
+  const groupedArchivedIdeas = groupItemsByFolder(
+    allArchivedIdeas,
+    foldersVisibleInArchive,
+  );
   const emptyState = getArchivedEmptyState();
   const archivedIdeaListData: ArchivedIdeaListItem[] =
     selectedFolderId === ALL_FOLDERS_ID
@@ -105,17 +120,19 @@ export default function ArchivedIdeasScreen() {
   const previousArchivedCount = useRef(allArchivedIdeas.length);
 
   useEffect(() => {
+    fetchFolders();
     fetchArchivedItems();
-  }, [fetchArchivedItems]);
+    fetchArchivedFolders();
+  }, [fetchArchivedFolders, fetchArchivedItems, fetchFolders]);
 
   useEffect(() => {
     if (
       selectedFolderId !== ALL_FOLDERS_ID &&
-      !folders.some((folder) => folder.id === selectedFolderId)
+      !foldersVisibleInArchive.some((folder) => folder.id === selectedFolderId)
     ) {
       setSelectedFolderId(ALL_FOLDERS_ID);
     }
-  }, [folders, selectedFolderId]);
+  }, [foldersVisibleInArchive, selectedFolderId]);
 
   useEffect(() => {
     if (previousArchivedCount.current > 0 && allArchivedIdeas.length === 0) {
@@ -167,7 +184,12 @@ export default function ArchivedIdeasScreen() {
     setIsRefreshing(true);
 
     try {
-      await Promise.all([fetchItems(), fetchArchivedItems(), fetchFolders()]);
+      await Promise.all([
+        fetchItems(),
+        fetchArchivedItems(),
+        fetchFolders(),
+        fetchArchivedFolders(),
+      ]);
     } finally {
       setIsRefreshing(false);
     }

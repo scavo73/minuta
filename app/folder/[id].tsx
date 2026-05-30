@@ -111,7 +111,6 @@ export default function FolderDetailScreen() {
 
   const unarchiveCurrentFolder = async () => {
     await unarchiveFolder(folder.id);
-    router.back();
   };
 
   const handleAction = (action: ItemAction) => {

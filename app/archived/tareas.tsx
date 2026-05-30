@@ -19,6 +19,7 @@ import {
   ALL_FOLDERS_ID,
   buildFolderChips,
   type FolderFilterId,
+  getFoldersVisibleInArchive,
   groupItemsByFolder,
   matchesFolderFilter,
 } from "../../lib/folders";
@@ -45,7 +46,11 @@ export default function ArchivedTasksScreen() {
   const [selectedFolderId, setSelectedFolderId] =
     useState<FolderFilterId>(ALL_FOLDERS_ID);
   const folders = useFoldersStore((state) => state.folders);
+  const archivedFolders = useFoldersStore((state) => state.archivedFolders);
   const fetchFolders = useFoldersStore((state) => state.fetchFolders);
+  const fetchArchivedFolders = useFoldersStore(
+    (state) => state.fetchArchivedFolders,
+  );
   const tasks = useNotesStore((state) => state.tasks);
   const fetchItems = useNotesStore((state) => state.fetchItems);
   const fetchArchivedItems = useNotesStore((state) => state.fetchArchivedItems);
@@ -56,11 +61,21 @@ export default function ArchivedTasksScreen() {
   const toggleTask = useNotesStore((state) => state.toggleTask);
   const unarchiveTask = useNotesStore((state) => state.unarchiveTask);
   const allArchivedTasks = tasks.filter((task) => task.isArchived);
-  const folderChips = buildFolderChips(folders, { tasks: allArchivedTasks });
+  const foldersVisibleInArchive = getFoldersVisibleInArchive(
+    folders,
+    archivedFolders,
+    { tasks: allArchivedTasks },
+  );
+  const folderChips = buildFolderChips(foldersVisibleInArchive, {
+    tasks: allArchivedTasks,
+  });
   const archivedTasks = allArchivedTasks.filter((task) =>
     matchesFolderFilter(task, selectedFolderId),
   );
-  const groupedArchivedTasks = groupItemsByFolder(allArchivedTasks, folders);
+  const groupedArchivedTasks = groupItemsByFolder(
+    allArchivedTasks,
+    foldersVisibleInArchive,
+  );
   const emptyState = getArchivedEmptyState();
   const archivedTaskListData: ArchivedTaskListItem[] =
     selectedFolderId === ALL_FOLDERS_ID
@@ -104,17 +119,19 @@ export default function ArchivedTasksScreen() {
   const previousArchivedCount = useRef(allArchivedTasks.length);
 
   useEffect(() => {
+    fetchFolders();
     fetchArchivedItems();
-  }, [fetchArchivedItems]);
+    fetchArchivedFolders();
+  }, [fetchArchivedFolders, fetchArchivedItems, fetchFolders]);
 
   useEffect(() => {
     if (
       selectedFolderId !== ALL_FOLDERS_ID &&
-      !folders.some((folder) => folder.id === selectedFolderId)
+      !foldersVisibleInArchive.some((folder) => folder.id === selectedFolderId)
     ) {
       setSelectedFolderId(ALL_FOLDERS_ID);
     }
-  }, [folders, selectedFolderId]);
+  }, [foldersVisibleInArchive, selectedFolderId]);
 
   useEffect(() => {
     if (previousArchivedCount.current > 0 && allArchivedTasks.length === 0) {
@@ -161,7 +178,12 @@ export default function ArchivedTasksScreen() {
     setIsRefreshing(true);
 
     try {
-      await Promise.all([fetchItems(), fetchArchivedItems(), fetchFolders()]);
+      await Promise.all([
+        fetchItems(),
+        fetchArchivedItems(),
+        fetchFolders(),
+        fetchArchivedFolders(),
+      ]);
     } finally {
       setIsRefreshing(false);
     }

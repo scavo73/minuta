@@ -45,6 +45,42 @@ function emptyCounts(): FolderItemCounts {
   };
 }
 
+export function getFoldersVisibleInArchive(
+  folders: Folder[],
+  archivedFolders: Folder[],
+  archivedItems: CountableItems,
+): Folder[] {
+  const archivedItemsFolderIds = new Set<string>();
+
+  archivedItems.tasks?.forEach((task) => {
+    if (task.folderId) archivedItemsFolderIds.add(task.folderId);
+  });
+
+  archivedItems.notes?.forEach((note) => {
+    if (note.folderId) archivedItemsFolderIds.add(note.folderId);
+  });
+
+  archivedItems.ideas?.forEach((idea) => {
+    if (idea.folderId) archivedItemsFolderIds.add(idea.folderId);
+  });
+
+  const foldersById = new Map<string, Folder>();
+
+  folders.forEach((folder) => {
+    if (archivedItemsFolderIds.has(folder.id)) {
+      foldersById.set(folder.id, folder);
+    }
+  });
+
+  archivedFolders.forEach((folder) => {
+    foldersById.set(folder.id, folder);
+  });
+
+  return Array.from(foldersById.values()).sort(
+    (a, b) => b.createdAt - a.createdAt,
+  );
+}
+
 export function calculateFolderCounts(
   folderId: string,
   items: Required<CountableItems>,

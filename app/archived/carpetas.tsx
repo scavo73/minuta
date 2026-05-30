@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Pressable,
   RefreshControl,
@@ -18,7 +18,10 @@ import { EmptyState } from "../../components/layout/EmptyState";
 import { MainScreenLayout } from "../../components/layout/MainScreenLayout";
 import { radius, spacing, typography } from "../../constants/theme";
 import { useMinutaTheme } from "../../constants/useMinutaTheme";
-import { calculateFolderCounts } from "../../lib/folders";
+import {
+  calculateFolderCounts,
+  getFoldersVisibleInArchive,
+} from "../../lib/folders";
 import { deleteFolderOnly, unarchiveFolder } from "../../lib/foldersService";
 import { type Folder, useFoldersStore } from "../../store/foldersStore";
 import { useNotesStore } from "../../store/notesStore";
@@ -26,43 +29,63 @@ import { useNotesStore } from "../../store/notesStore";
 export default function ArchivedFoldersScreen() {
   const { theme } = useMinutaTheme();
   const insets = useSafeAreaInsets();
+  const folders = useFoldersStore((state) => state.folders);
   const archivedFolders = useFoldersStore((state) => state.archivedFolders);
   const fetchFolders = useFoldersStore((state) => state.fetchFolders);
-  const notes = useNotesStore((state) => state.notes);
-  const ideas = useNotesStore((state) => state.ideas);
-  const tasks = useNotesStore((state) => state.tasks);
-  const [isSelecting, setIsSelecting] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [selectedFolderIds, setSelectedFolderIds] = useState<string[]>([]);
-  const previousArchivedCount = useRef(archivedFolders.length);
-
-  useEffect(() => {
-    if (previousArchivedCount.current > 0 && archivedFolders.length === 0) {
-      router.back();
-      return;
-    }
-    previousArchivedCount.current = archivedFolders.length;
-  }, [archivedFolders.length]);
-
   const fetchArchivedFolders = useFoldersStore(
     (state) => state.fetchArchivedFolders,
   );
+  const notes = useNotesStore((state) => state.notes);
+  const ideas = useNotesStore((state) => state.ideas);
+  const tasks = useNotesStore((state) => state.tasks);
+  const fetchItems = useNotesStore((state) => state.fetchItems);
+  const fetchArchivedItems = useNotesStore((state) => state.fetchArchivedItems);
+  const archivedNotes = notes.filter((note) => note.isArchived);
+  const archivedIdeas = ideas.filter((idea) => idea.isArchived);
+  const archivedTasks = tasks.filter((task) => task.isArchived);
+  const foldersVisibleInArchive = getFoldersVisibleInArchive(
+    folders,
+    archivedFolders,
+    {
+      notes: archivedNotes,
+      ideas: archivedIdeas,
+      tasks: archivedTasks,
+    },
+  );
+  const archivedFolderIds = new Set(archivedFolders.map((folder) => folder.id));
+  const selectableFolderIds = new Set(
+    foldersVisibleInArchive
+      .filter((folder) => archivedFolderIds.has(folder.id))
+      .map((folder) => folder.id),
+  );
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedFolderIds, setSelectedFolderIds] = useState<string[]>([]);
 
   useEffect(() => {
+    fetchFolders();
     fetchArchivedFolders();
-  }, [fetchArchivedFolders]);
+    fetchArchivedItems();
+  }, [fetchArchivedFolders, fetchArchivedItems, fetchFolders]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
 
     try {
-      await Promise.all([fetchFolders(), fetchArchivedFolders()]);
+      await Promise.all([
+        fetchFolders(),
+        fetchArchivedFolders(),
+        fetchItems(),
+        fetchArchivedItems(),
+      ]);
     } finally {
       setIsRefreshing(false);
     }
   };
 
   const toggleFolderSelection = (folderId: string) => {
+    if (!selectableFolderIds.has(folderId)) return;
+
     setSelectedFolderIds((currentIds) =>
       currentIds.includes(folderId)
         ? currentIds.filter((id) => id !== folderId)
@@ -71,11 +94,15 @@ export default function ArchivedFoldersScreen() {
   };
 
   const getFolderCounts = (folderId: string) =>
-    calculateFolderCounts(folderId, { ideas, notes, tasks });
+    calculateFolderCounts(folderId, {
+      ideas: archivedIdeas,
+      notes: archivedNotes,
+      tasks: archivedTasks,
+    });
 
   const selectAllFolders = () => {
     setIsSelecting(true);
-    setSelectedFolderIds(archivedFolders.map((folder) => folder.id));
+    setSelectedFolderIds(Array.from(selectableFolderIds));
   };
 
   const unarchiveSelectedFolders = async () => {
@@ -143,6 +170,7 @@ export default function ArchivedFoldersScreen() {
 
   const renderFolderCard = (folder: Folder) => {
     const isSelected = selectedFolderIds.includes(folder.id);
+    const canSelect = selectableFolderIds.has(folder.id);
     const counts = getFolderCounts(folder.id);
     const total = counts.tasks + counts.notes + counts.ideas;
 
@@ -166,7 +194,7 @@ export default function ArchivedFoldersScreen() {
           },
         ]}
       >
-        {isSelecting ? (
+        {isSelecting && canSelect ? (
           <View
             style={[
               styles.selectionBadge,
@@ -261,14 +289,16 @@ export default function ArchivedFoldersScreen() {
           }
           scrollEventThrottle={16}
         >
-          {archivedFolders.length === 0 ? (
+          {foldersVisibleInArchive.length === 0 ? (
             <EmptyState
               title="Sin carpetas archivadas"
               text="Cuando archives carpetas, aparecerán aquí."
             />
           ) : (
             <View style={styles.folderList}>
-              {archivedFolders.map((folder) => renderFolderCard(folder))}
+              {foldersVisibleInArchive.map((folder) =>
+                renderFolderCard(folder),
+              )}
             </View>
           )}
         </ScrollView>
