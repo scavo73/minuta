@@ -5,6 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 
 import { GluestackUIProvider } from "../components/ui/gluestack-ui-provider";
+import { getToken } from "../lib/authStorage";
 import { useFoldersStore } from "../store/foldersStore";
 import { useNotesStore } from "../store/notesStore";
 
@@ -13,8 +14,22 @@ export default function RootLayout() {
   const fetchItems = useNotesStore((state) => state.fetchItems);
 
   useEffect(() => {
-    fetchFolders();
-    fetchItems();
+    let isMounted = true;
+
+    async function loadInitialData() {
+      const token = await getToken();
+
+      if (!isMounted || !token) return;
+
+      fetchFolders();
+      fetchItems();
+    }
+
+    void loadInitialData();
+
+    return () => {
+      isMounted = false;
+    };
   }, [fetchFolders, fetchItems]);
 
   return (

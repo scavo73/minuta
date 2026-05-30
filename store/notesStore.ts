@@ -4,6 +4,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 
 import type { AnyNote, IdeaNote, Note, Task } from "../types";
 
+import { getToken } from "../lib/authStorage";
 import {
   deleteItem as deleteRemoteItem,
   getArchives,
@@ -21,6 +22,7 @@ interface NotesStore {
 
   isLoading: boolean;
   error: string | null;
+  clearItems: () => void;
   fetchItems: () => Promise<void>;
   fetchArchivedItems: () => Promise<void>;
 
@@ -122,7 +124,10 @@ function getLocalItemType(item: AnyNote) {
   return "note";
 }
 
-function mapRemoteNoteToLocal(item: MinutaItem, fallbackIsArchived = false): Note {
+function mapRemoteNoteToLocal(
+  item: MinutaItem,
+  fallbackIsArchived = false,
+): Note {
   return {
     id: item.id,
     title: item.title,
@@ -166,8 +171,6 @@ function mapRemoteChecklistToLocal(
   };
 }
 
-
-
 export const useNotesStore = create<NotesStore>()(
   persist(
     (set, get) => ({
@@ -178,8 +181,24 @@ export const useNotesStore = create<NotesStore>()(
       isLoading: false,
       error: null,
 
+      clearItems: () =>
+        set({
+          notes: [],
+          tasks: [],
+          ideas: [],
+          error: null,
+          isLoading: false,
+        }),
+
       fetchItems: async () => {
         try {
+          const token = await getToken();
+
+          if (!token) {
+            get().clearItems();
+            return;
+          }
+
           set({
             isLoading: true,
             error: null,
@@ -235,6 +254,13 @@ export const useNotesStore = create<NotesStore>()(
 
       fetchArchivedItems: async () => {
         try {
+          const token = await getToken();
+
+          if (!token) {
+            get().clearItems();
+            return;
+          }
+
           set({
             isLoading: true,
             error: null,
@@ -308,13 +334,13 @@ export const useNotesStore = create<NotesStore>()(
               state.notes.map((note) =>
                 note.id === id
                   ? {
-                    ...note,
-                    title: updates.title,
-                    content: updates.content,
-                    imageUri: updates.imageUri,
-                    folderId: updates.folderId ?? null,
-                    updatedAt: new Date(),
-                  }
+                      ...note,
+                      title: updates.title,
+                      content: updates.content,
+                      imageUri: updates.imageUri,
+                      folderId: updates.folderId ?? null,
+                      updatedAt: new Date(),
+                    }
                   : note,
               ),
             ),
@@ -348,13 +374,13 @@ export const useNotesStore = create<NotesStore>()(
               state.ideas.map((idea) =>
                 idea.id === id
                   ? {
-                    ...idea,
-                    title: updates.title,
-                    color: updates.color,
-                    tags: updates.tags ?? [],
-                    folderId: updates.folderId ?? null,
-                    updatedAt: new Date(),
-                  }
+                      ...idea,
+                      title: updates.title,
+                      color: updates.color,
+                      tags: updates.tags ?? [],
+                      folderId: updates.folderId ?? null,
+                      updatedAt: new Date(),
+                    }
                   : idea,
               ),
             ),
@@ -442,10 +468,10 @@ export const useNotesStore = create<NotesStore>()(
               note.id !== id
                 ? note
                 : {
-                  ...note,
-                  isArchived: true,
-                  updatedAt: new Date(),
-                },
+                    ...note,
+                    isArchived: true,
+                    updatedAt: new Date(),
+                  },
             ),
             error: null,
           }));
@@ -454,7 +480,9 @@ export const useNotesStore = create<NotesStore>()(
         } catch (error) {
           set({
             error:
-              error instanceof Error ? error.message : "Error al archivar la nota",
+              error instanceof Error
+                ? error.message
+                : "Error al archivar la nota",
           });
         }
       },
@@ -468,10 +496,10 @@ export const useNotesStore = create<NotesStore>()(
               task.id !== id
                 ? task
                 : {
-                  ...task,
-                  isArchived: true,
-                  updatedAt: new Date(),
-                },
+                    ...task,
+                    isArchived: true,
+                    updatedAt: new Date(),
+                  },
             ),
             error: null,
           }));
@@ -480,7 +508,9 @@ export const useNotesStore = create<NotesStore>()(
         } catch (error) {
           set({
             error:
-              error instanceof Error ? error.message : "Error al archivar la tarea",
+              error instanceof Error
+                ? error.message
+                : "Error al archivar la tarea",
           });
         }
       },
@@ -494,10 +524,10 @@ export const useNotesStore = create<NotesStore>()(
               idea.id !== id
                 ? idea
                 : {
-                  ...idea,
-                  isArchived: true,
-                  updatedAt: new Date(),
-                },
+                    ...idea,
+                    isArchived: true,
+                    updatedAt: new Date(),
+                  },
             ),
             error: null,
           }));
@@ -506,7 +536,9 @@ export const useNotesStore = create<NotesStore>()(
         } catch (error) {
           set({
             error:
-              error instanceof Error ? error.message : "Error al archivar la idea",
+              error instanceof Error
+                ? error.message
+                : "Error al archivar la idea",
           });
         }
       },
@@ -520,10 +552,10 @@ export const useNotesStore = create<NotesStore>()(
               note.id !== id
                 ? note
                 : {
-                  ...note,
-                  isArchived: false,
-                  updatedAt: new Date(),
-                },
+                    ...note,
+                    isArchived: false,
+                    updatedAt: new Date(),
+                  },
             ),
             error: null,
           }));
@@ -532,7 +564,9 @@ export const useNotesStore = create<NotesStore>()(
         } catch (error) {
           set({
             error:
-              error instanceof Error ? error.message : "Error al desarchivar la nota",
+              error instanceof Error
+                ? error.message
+                : "Error al desarchivar la nota",
           });
         }
       },
@@ -546,10 +580,10 @@ export const useNotesStore = create<NotesStore>()(
               task.id !== id
                 ? task
                 : {
-                  ...task,
-                  isArchived: false,
-                  updatedAt: new Date(),
-                },
+                    ...task,
+                    isArchived: false,
+                    updatedAt: new Date(),
+                  },
             ),
             error: null,
           }));
@@ -558,7 +592,9 @@ export const useNotesStore = create<NotesStore>()(
         } catch (error) {
           set({
             error:
-              error instanceof Error ? error.message : "Error al desarchivar la tarea",
+              error instanceof Error
+                ? error.message
+                : "Error al desarchivar la tarea",
           });
         }
       },
@@ -572,10 +608,10 @@ export const useNotesStore = create<NotesStore>()(
               idea.id !== id
                 ? idea
                 : {
-                  ...idea,
-                  isArchived: false,
-                  updatedAt: new Date(),
-                },
+                    ...idea,
+                    isArchived: false,
+                    updatedAt: new Date(),
+                  },
             ),
             error: null,
           }));
@@ -584,7 +620,9 @@ export const useNotesStore = create<NotesStore>()(
         } catch (error) {
           set({
             error:
-              error instanceof Error ? error.message : "Error al desarchivar la idea",
+              error instanceof Error
+                ? error.message
+                : "Error al desarchivar la idea",
           });
         }
       },
@@ -931,9 +969,7 @@ export const useNotesStore = create<NotesStore>()(
         } catch (error) {
           set({
             error:
-              error instanceof Error
-                ? error.message
-                : "Error al mover la idea",
+              error instanceof Error ? error.message : "Error al mover la idea",
           });
         }
       },
@@ -955,9 +991,7 @@ export const useNotesStore = create<NotesStore>()(
         } catch (error) {
           set({
             error:
-              error instanceof Error
-                ? error.message
-                : "Error al mover la nota",
+              error instanceof Error ? error.message : "Error al mover la nota",
           });
         }
       },
@@ -992,7 +1026,9 @@ export const useNotesStore = create<NotesStore>()(
           const completedTasks = get().tasks.filter((task) => task.isCompleted);
 
           await Promise.all(
-            completedTasks.map((task) => deleteRemoteItem(task.id, "checklist")),
+            completedTasks.map((task) =>
+              deleteRemoteItem(task.id, "checklist"),
+            ),
           );
 
           await get().fetchItems();
@@ -1038,10 +1074,10 @@ export const useNotesStore = create<NotesStore>()(
               item.id !== id
                 ? item
                 : {
-                  ...item,
-                  isArchived: true,
-                  updatedAt: now,
-                },
+                    ...item,
+                    isArchived: true,
+                    updatedAt: now,
+                  },
             ),
             tasks: [
               {

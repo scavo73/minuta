@@ -18,6 +18,8 @@ import {
 import { radius, spacing, typography } from "../constants/theme";
 import { useMinutaTheme } from "../constants/useMinutaTheme";
 import { deleteToken } from "../lib/authStorage";
+import { useFoldersStore } from "../store/foldersStore";
+import { useNotesStore } from "../store/notesStore";
 
 type AccountIconName = React.ComponentProps<typeof Ionicons>["name"];
 
@@ -90,6 +92,8 @@ export default function AccountScreen() {
   const { theme, isDark } = useMinutaTheme();
   const insets = useSafeAreaInsets();
   const [isDarkModePreview, setIsDarkModePreview] = useState(isDark);
+  const clearFolders = useFoldersStore((state) => state.clearFolders);
+  const clearItems = useNotesStore((state) => state.clearItems);
 
   const handleLogout = () => {
     Alert.alert(
@@ -105,7 +109,10 @@ export default function AccountScreen() {
           style: "destructive",
           onPress: async () => {
             await deleteToken();
-            router.replace("/");
+            clearItems();
+            clearFolders();
+            await useNotesStore.persist.clearStorage();
+            router.replace("/auth/sign-in");
           },
         },
       ],

@@ -1,5 +1,6 @@
 import { create } from "zustand";
 
+import { getToken } from "../lib/authStorage";
 import {
   createFolder as createRemoteFolder,
   deleteFolder as deleteRemoteFolder,
@@ -32,6 +33,7 @@ interface FoldersStore {
   addFolder: (name: string) => Promise<Folder | null>;
   archiveFolder: (id: string) => Promise<void>;
   createFolder: (name: string) => Promise<Folder | null>;
+  clearFolders: () => void;
   deleteFolder: (id: string) => Promise<void>;
   deleteFolderRecord: (id: string) => Promise<void>;
   fetchFolders: () => Promise<void>;
@@ -64,10 +66,7 @@ function sortFolders(folders: Folder[]) {
   return [...folders].sort((a, b) => b.createdAt - a.createdAt);
 }
 
-function getRemoteFolderIsArchived(
-  folder: RemoteFolder,
-  fallback = false,
-) {
+function getRemoteFolderIsArchived(folder: RemoteFolder, fallback = false) {
   return folder.is_archive ?? folder.isArchive ?? fallback;
 }
 
@@ -77,6 +76,13 @@ export const useFoldersStore = create<FoldersStore>((set, get) => ({
   folders: [],
   isLoading: false,
   addFolder: async (name) => get().createFolder(name),
+  clearFolders: () =>
+    set({
+      folders: [],
+      archivedFolders: [],
+      error: null,
+      isLoading: false,
+    }),
   archiveFolder: async (id) => {
     const folder = get().folders.find((item) => item.id === id);
 
@@ -122,7 +128,10 @@ export const useFoldersStore = create<FoldersStore>((set, get) => ({
 
       set((state) => ({
         error: null,
-        folders: sortFolders([{ ...folder, isArchived: false }, ...state.folders]),
+        folders: sortFolders([
+          { ...folder, isArchived: false },
+          ...state.folders,
+        ]),
       }));
 
       return folder;
@@ -156,12 +165,21 @@ export const useFoldersStore = create<FoldersStore>((set, get) => ({
   },
   fetchFolders: async () => {
     try {
+      const token = await getToken();
+
+      if (!token) {
+        get().clearFolders();
+        return;
+      }
+
       set({ isLoading: true, error: null });
 
       const folders = await getRemoteFolders();
       const currentFolders = [...get().folders, ...get().archivedFolders];
       const normalizedFolders = folders.map((folder) => {
-        const currentFolder = currentFolders.find((item) => item.id === folder.id);
+        const currentFolder = currentFolders.find(
+          (item) => item.id === folder.id,
+        );
         const normalizedFolder = normalizeFolder(folder);
 
         return {
@@ -193,6 +211,13 @@ export const useFoldersStore = create<FoldersStore>((set, get) => ({
   },
   fetchArchivedFolders: async () => {
     try {
+      const token = await getToken();
+
+      if (!token) {
+        get().clearFolders();
+        return;
+      }
+
       set({ isLoading: true, error: null });
 
       const archives = await getArchives();
@@ -281,9 +306,7 @@ export const useFoldersStore = create<FoldersStore>((set, get) => ({
     } catch (error) {
       set({
         error:
-          error instanceof Error
-            ? error.message
-            : "Error al renombrar carpeta",
+          error instanceof Error ? error.message : "Error al renombrar carpeta",
       });
     }
   },
