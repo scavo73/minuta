@@ -2,7 +2,7 @@ import { FlashList } from "@shopify/flash-list";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { RefreshControl, StyleSheet, View } from "react-native";
 
 import { showDeleteConfirm } from "../../components/actions/DeleteConfirmDialog";
 import { SectionActionsMenu } from "../../components/actions/SectionActionsMenu";
@@ -49,12 +49,14 @@ function normalizeSearch(value: string) {
 export default function NotasScreen() {
   const bottomTabBarHeight = useBottomTabBarHeight();
   const [searchQuery, setSearchQuery] = useState("");
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isRowSwiping, setIsRowSwiping] = useState(false);
   const [isFoldersModalOpen, setIsFoldersModalOpen] = useState(false);
   const [selectedFolderId, setSelectedFolderId] =
     useState<FolderFilterId>(ALL_FOLDERS_ID);
   const folders = useFoldersStore((state) => state.folders);
   const archivedFolders = useFoldersStore((state) => state.archivedFolders);
+  const fetchFolders = useFoldersStore((state) => state.fetchFolders);
   const setCreateContext = useCreateContextStore(
     (state) => state.setCreateContext,
   );
@@ -65,6 +67,7 @@ export default function NotasScreen() {
   const deleteNote = useNotesStore((state) => state.deleteNote);
   const tasks = useNotesStore((state) => state.tasks);
   const ideas = useNotesStore((state) => state.ideas);
+  const fetchItems = useNotesStore((state) => state.fetchItems);
   const normalizedQuery = normalizeSearch(searchQuery);
   const visibleNotes = notes.filter((note) => !note.isArchived);
   const archivedNotes = notes.filter((note) => note.isArchived);
@@ -191,6 +194,16 @@ export default function NotasScreen() {
     });
   };
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+
+    try {
+      await Promise.all([fetchItems(), fetchFolders()]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   return (
     <>
       <MainScreenLayout
@@ -224,52 +237,58 @@ export default function NotasScreen() {
         onSearchChange={setSearchQuery}
       >
         {({ onScroll }) => (
-        <FlashList
-          data={noteListData}
-          estimatedItemSize={140}
-          keyExtractor={(item) => item.id}
-          keyboardShouldPersistTaps="handled"
-          maintainVisibleContentPosition={{ disabled: true }}
-          ListHeaderComponent={
-            <View style={styles.listHeader}>
-              {archivedNotes.length > 0 ? (
-                <ArchivedRow onPress={() => router.push("/archived/notas")} />
-              ) : null}
-            </View>
-          }
-          ListEmptyComponent={
-            <EmptyState title={emptyState.title} text={emptyState.text} />
-          }
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
-          contentContainerStyle={[
-            styles.content,
-            { paddingBottom: bottomTabBarHeight + spacing.md },
-          ]}
-          onScroll={onScroll}
-          scrollEventThrottle={16}
-          scrollEnabled={!isRowSwiping}
-          renderItem={({ item }) =>
-            item.type === "section" ? (
-              <FolderSectionHeader
-                count={item.count}
-                title={item.title}
-                variant={item.variant}
+          <FlashList
+            data={noteListData}
+            estimatedItemSize={140}
+            keyExtractor={(item) => item.id}
+            keyboardShouldPersistTaps="handled"
+            maintainVisibleContentPosition={{ disabled: true }}
+            ListHeaderComponent={
+              <View style={styles.listHeader}>
+                {archivedNotes.length > 0 ? (
+                  <ArchivedRow onPress={() => router.push("/archived/notas")} />
+                ) : null}
+              </View>
+            }
+            ListEmptyComponent={
+              <EmptyState title={emptyState.title} text={emptyState.text} />
+            }
+            ItemSeparatorComponent={() => <View style={styles.separator} />}
+            contentContainerStyle={[
+              styles.content,
+              { paddingBottom: bottomTabBarHeight + spacing.md },
+            ]}
+            onScroll={onScroll}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={handleRefresh}
               />
-            ) : (
-              <SwipeableItemCard
-                onArchive={() => archiveNote(item.note.id)}
-                onDelete={() => confirmDeleteNote(item.note.id)}
-                onSwipeEnd={() => setIsRowSwiping(false)}
-                onSwipeStart={() => setIsRowSwiping(true)}
-              >
-                <NoteCard
-                  note={item.note}
-                  onPress={() => router.push(`/item/${item.note.id}`)}
+            }
+            scrollEventThrottle={16}
+            scrollEnabled={!isRowSwiping}
+            renderItem={({ item }) =>
+              item.type === "section" ? (
+                <FolderSectionHeader
+                  count={item.count}
+                  title={item.title}
+                  variant={item.variant}
                 />
-              </SwipeableItemCard>
-            )
-          }
-        />
+              ) : (
+                <SwipeableItemCard
+                  onArchive={() => archiveNote(item.note.id)}
+                  onDelete={() => confirmDeleteNote(item.note.id)}
+                  onSwipeEnd={() => setIsRowSwiping(false)}
+                  onSwipeStart={() => setIsRowSwiping(true)}
+                >
+                  <NoteCard
+                    note={item.note}
+                    onPress={() => router.push(`/item/${item.note.id}`)}
+                  />
+                </SwipeableItemCard>
+              )
+            }
+          />
         )}
       </MainScreenLayout>
       <FoldersModal

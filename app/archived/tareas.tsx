@@ -2,7 +2,7 @@ import { FlashList } from "@shopify/flash-list";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Pressable, RefreshControl, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { showDeleteConfirm } from "../../components/actions/DeleteConfirmDialog";
@@ -29,22 +29,25 @@ import type { Task } from "../../types";
 
 type ArchivedTaskListItem =
   | {
-    id: string;
-    type: "section";
-    count: number;
-    title: string;
-    variant?: "folder" | "unfiled";
-  }
+      id: string;
+      type: "section";
+      count: number;
+      title: string;
+      variant?: "folder" | "unfiled";
+    }
   | { id: string; type: "task"; task: Task };
 
 export default function ArchivedTasksScreen() {
   const { theme } = useMinutaTheme();
   const insets = useSafeAreaInsets();
   const [isRowSwiping, setIsRowSwiping] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedFolderId, setSelectedFolderId] =
     useState<FolderFilterId>(ALL_FOLDERS_ID);
   const folders = useFoldersStore((state) => state.folders);
+  const fetchFolders = useFoldersStore((state) => state.fetchFolders);
   const tasks = useNotesStore((state) => state.tasks);
+  const fetchItems = useNotesStore((state) => state.fetchItems);
   const fetchArchivedItems = useNotesStore((state) => state.fetchArchivedItems);
   const deleteAllArchivedTasks = useNotesStore(
     (state) => state.deleteAllArchivedTasks,
@@ -62,42 +65,42 @@ export default function ArchivedTasksScreen() {
   const archivedTaskListData: ArchivedTaskListItem[] =
     selectedFolderId === ALL_FOLDERS_ID
       ? [
-        ...(groupedArchivedTasks.unfiledItems.length > 0
-          ? [
+          ...(groupedArchivedTasks.unfiledItems.length > 0
+            ? [
+                {
+                  id: "section-unfiled",
+                  type: "section" as const,
+                  title: "General",
+                  count: groupedArchivedTasks.unfiledItems.length,
+                  variant: "unfiled" as const,
+                },
+                ...groupedArchivedTasks.unfiledItems.map((task) => ({
+                  id: task.id,
+                  type: "task" as const,
+                  task,
+                })),
+              ]
+            : []),
+          ...groupedArchivedTasks.folderGroups.flatMap((group) => [
             {
-              id: "section-unfiled",
+              id: `section-${group.folder.id}`,
               type: "section" as const,
-              title: "General",
-              count: groupedArchivedTasks.unfiledItems.length,
-              variant: "unfiled" as const,
+              title: group.folder.name,
+              count: group.items.length,
+              variant: "folder" as const,
             },
-            ...groupedArchivedTasks.unfiledItems.map((task) => ({
+            ...group.items.map((task) => ({
               id: task.id,
               type: "task" as const,
               task,
             })),
-          ]
-          : []),
-        ...groupedArchivedTasks.folderGroups.flatMap((group) => [
-          {
-            id: `section-${group.folder.id}`,
-            type: "section" as const,
-            title: group.folder.name,
-            count: group.items.length,
-            variant: "folder" as const,
-          },
-          ...group.items.map((task) => ({
-            id: task.id,
-            type: "task" as const,
-            task,
-          })),
-        ]),
-      ]
+          ]),
+        ]
       : archivedTasks.map((task) => ({
-        id: task.id,
-        type: "task",
-        task,
-      }));
+          id: task.id,
+          type: "task",
+          task,
+        }));
   const previousArchivedCount = useRef(allArchivedTasks.length);
 
   useEffect(() => {
@@ -154,6 +157,16 @@ export default function ArchivedTasksScreen() {
     });
   };
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+
+    try {
+      await Promise.all([fetchItems(), fetchArchivedItems(), fetchFolders()]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   return (
     <MainScreenLayout
       actions={
@@ -202,6 +215,12 @@ export default function ArchivedTasksScreen() {
             { paddingBottom: insets.bottom + spacing.md },
           ]}
           onScroll={onScroll}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+            />
+          }
           scrollEnabled={!isRowSwiping}
           scrollEventThrottle={16}
           renderItem={({ item }) =>

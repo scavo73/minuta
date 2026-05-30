@@ -22,6 +22,11 @@ export default function RootLayout() {
       <StatusBar style="auto" />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="account" />
+        <Stack.Screen name="auth/sign-in" />
+        <Stack.Screen name="auth/sign-up" />
+        <Stack.Screen name="auth/forgot-password" />
+        <Stack.Screen name="privacy" />
         <Stack.Screen name="new-item" />
         <Stack.Screen name="drafts" />
         <Stack.Screen name="item/[id]" />

@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from "react";
+import { Ionicons } from "@expo/vector-icons";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback } from "react";
 import {
   Animated,
   Easing,
+  Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   View,
@@ -17,6 +20,7 @@ import { NoteCard } from "../../components/items/NoteCard";
 import { EmptyState } from "../../components/layout/EmptyState";
 import { MainScreenLayout } from "../../components/layout/MainScreenLayout";
 import { spacing } from "../../constants/theme";
+import { useMinutaTheme } from "../../constants/useMinutaTheme";
 import {
   ALL_FOLDERS_ID,
   buildFolderChips,
@@ -99,17 +103,20 @@ function renderMasonryItem(item: HomeMasonryItem, onPress: () => void) {
 }
 
 export default function HomeScreen() {
+  const { theme } = useMinutaTheme();
   const bottomTabBarHeight = useBottomTabBarHeight();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [widgetHeight, setWidgetHeight] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedFolderId, setSelectedFolderId] =
     useState<FolderFilterId>(ALL_FOLDERS_ID);
 
   const widgetAnim = useRef(new Animated.Value(1)).current;
 
   const folders = useFoldersStore((state) => state.folders);
+  const fetchFolders = useFoldersStore((state) => state.fetchFolders);
   const setCreateContext = useCreateContextStore(
     (state) => state.setCreateContext,
   );
@@ -130,9 +137,7 @@ export default function HomeScreen() {
   const filteredTasks = activeTasks.filter((task) =>
     matchesFolderFilter(task, selectedFolderId),
   );
-  const pendingVisibleTasks = filteredTasks.filter(
-    (task) => !task.isCompleted,
-  );
+  const pendingVisibleTasks = filteredTasks.filter((task) => !task.isCompleted);
   const hasVisibleTasks = pendingVisibleTasks.length > 0;
   const allItems = [
     ...activeNotes.filter((note) =>
@@ -193,6 +198,16 @@ export default function HomeScreen() {
     });
   };
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+
+    try {
+      await Promise.all([fetchItems(), fetchFolders()]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   const animatedWidgetHeight = widgetAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [0, widgetHeight],
@@ -218,6 +233,20 @@ export default function HomeScreen() {
 
   return (
     <MainScreenLayout
+      actions={
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Abrir cuenta"
+          onPress={() => router.push("/account")}
+          style={[styles.accountButton, { backgroundColor: theme.surface }]}
+        >
+          <View
+            style={[styles.accountAvatar, { backgroundColor: theme.primary }]}
+          >
+            <Ionicons color="#FFFFFF" name="person" size={18} />
+          </View>
+        </Pressable>
+      }
       chips={
         folderChips.length > 1 ? (
           <FolderChips
@@ -236,85 +265,107 @@ export default function HomeScreen() {
       onSearchFocus={() => setIsSearchFocused(true)}
     >
       {({ onScroll }) => (
-      <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          { paddingBottom: bottomTabBarHeight + spacing.md },
-        ]}
-        keyboardShouldPersistTaps="handled"
-        onScroll={onScroll}
-        scrollEventThrottle={16}
-      >
-        <View style={styles.header}>
-          {hasVisibleTasks ? (
-            <Animated.View
-              pointerEvents={shouldHideWidget ? "none" : "auto"}
-              style={[
-                styles.widgetAnimatedWrapper,
-                widgetHeight > 0
-                  ? {
-                      height: animatedWidgetHeight,
-                      marginTop: animatedWidgetMarginTop,
-                      opacity: widgetAnim,
-                    }
-                  : {
-                      opacity: widgetAnim,
-                      marginTop: 12,
-                    },
-              ]}
-            >
-              <View
-                onLayout={(event) => {
-                  const height = event.nativeEvent.layout.height;
-
-                  if (height > 0 && height !== widgetHeight) {
-                    setWidgetHeight(height);
-                  }
-                }}
+        <ScrollView
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: bottomTabBarHeight + spacing.md },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          onScroll={onScroll}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+            />
+          }
+          scrollEventThrottle={16}
+        >
+          <View style={styles.header}>
+            {hasVisibleTasks ? (
+              <Animated.View
+                pointerEvents={shouldHideWidget ? "none" : "auto"}
+                style={[
+                  styles.widgetAnimatedWrapper,
+                  widgetHeight > 0
+                    ? {
+                        height: animatedWidgetHeight,
+                        marginTop: animatedWidgetMarginTop,
+                        opacity: widgetAnim,
+                      }
+                    : {
+                        opacity: widgetAnim,
+                        marginTop: 12,
+                      },
+                ]}
               >
-                <HomeTasksWidget
-                  onToggleTask={toggleTask}
-                  tasks={pendingVisibleTasks}
-                />
-              </View>
-            </Animated.View>
-          ) : null}
-        </View>
+                <View
+                  onLayout={(event) => {
+                    const height = event.nativeEvent.layout.height;
 
-        <View>
-          {items.length === 0 ? (
-            <EmptyState title={emptyState.title} text={emptyState.text} />
-          ) : (
-            <View style={styles.masonryRow}>
-              <View style={styles.column}>
-                {left.map((item) => (
-                  <View key={item.id} style={styles.cardWrapper}>
-                    {renderMasonryItem(item, () =>
-                      router.push(`/item/${item.id}`),
-                    )}
-                  </View>
-                ))}
-              </View>
+                    if (height > 0 && height !== widgetHeight) {
+                      setWidgetHeight(height);
+                    }
+                  }}
+                >
+                  <HomeTasksWidget
+                    onToggleTask={toggleTask}
+                    tasks={pendingVisibleTasks}
+                  />
+                </View>
+              </Animated.View>
+            ) : null}
+          </View>
 
-              <View style={styles.column}>
-                {right.map((item) => (
-                  <View key={item.id} style={styles.cardWrapper}>
-                    {renderMasonryItem(item, () =>
-                      router.push(`/item/${item.id}`),
-                    )}
-                  </View>
-                ))}
+          <View>
+            {items.length === 0 ? (
+              <EmptyState title={emptyState.title} text={emptyState.text} />
+            ) : (
+              <View style={styles.masonryRow}>
+                <View style={styles.column}>
+                  {left.map((item) => (
+                    <View key={item.id} style={styles.cardWrapper}>
+                      {renderMasonryItem(item, () =>
+                        router.push(`/item/${item.id}`),
+                      )}
+                    </View>
+                  ))}
+                </View>
+
+                <View style={styles.column}>
+                  {right.map((item) => (
+                    <View key={item.id} style={styles.cardWrapper}>
+                      {renderMasonryItem(item, () =>
+                        router.push(`/item/${item.id}`),
+                      )}
+                    </View>
+                  ))}
+                </View>
               </View>
-            </View>
-          )}
-        </View>
-      </ScrollView>
+            )}
+          </View>
+        </ScrollView>
       )}
     </MainScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
+  accountAvatar: {
+    alignItems: "center",
+    borderRadius: 999,
+    height: 30,
+    justifyContent: "center",
+    width: 30,
+  },
+
+  accountButton: {
+    alignItems: "center",
+    borderRadius: 999,
+    height: 40,
+    justifyContent: "center",
+    width: 40,
+  },
+
   content: {
     paddingHorizontal: spacing.md,
     paddingTop: spacing.md,

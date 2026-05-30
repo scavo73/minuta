@@ -2,7 +2,7 @@ import { FlashList } from "@shopify/flash-list";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { RefreshControl, StyleSheet, View } from "react-native";
 
 import { showDeleteConfirm } from "../../components/actions/DeleteConfirmDialog";
 import { SectionActionsMenu } from "../../components/actions/SectionActionsMenu";
@@ -49,12 +49,14 @@ function normalizeSearch(value: string) {
 export default function IdeasScreen() {
   const bottomTabBarHeight = useBottomTabBarHeight();
   const [searchQuery, setSearchQuery] = useState("");
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isRowSwiping, setIsRowSwiping] = useState(false);
   const [isFoldersModalOpen, setIsFoldersModalOpen] = useState(false);
   const [selectedFolderId, setSelectedFolderId] =
     useState<FolderFilterId>(ALL_FOLDERS_ID);
   const folders = useFoldersStore((state) => state.folders);
   const archivedFolders = useFoldersStore((state) => state.archivedFolders);
+  const fetchFolders = useFoldersStore((state) => state.fetchFolders);
   const setCreateContext = useCreateContextStore(
     (state) => state.setCreateContext,
   );
@@ -65,6 +67,7 @@ export default function IdeasScreen() {
   const deleteIdea = useNotesStore((state) => state.deleteIdea);
   const tasks = useNotesStore((state) => state.tasks);
   const notes = useNotesStore((state) => state.notes);
+  const fetchItems = useNotesStore((state) => state.fetchItems);
   const normalizedQuery = normalizeSearch(searchQuery);
   const visibleIdeas = ideas.filter((idea) => !idea.isArchived);
   const archivedIdeas = ideas.filter((idea) => idea.isArchived);
@@ -191,6 +194,16 @@ export default function IdeasScreen() {
     });
   };
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+
+    try {
+      await Promise.all([fetchItems(), fetchFolders()]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   return (
     <>
       <MainScreenLayout
@@ -224,52 +237,58 @@ export default function IdeasScreen() {
         onSearchChange={setSearchQuery}
       >
         {({ onScroll }) => (
-        <FlashList
-          data={ideaListData}
-          estimatedItemSize={140}
-          keyExtractor={(item) => item.id}
-          keyboardShouldPersistTaps="handled"
-          maintainVisibleContentPosition={{ disabled: true }}
-          ListHeaderComponent={
-            <View style={styles.listHeader}>
-              {archivedIdeas.length > 0 ? (
-                <ArchivedRow onPress={() => router.push("/archived/ideas")} />
-              ) : null}
-            </View>
-          }
-          ListEmptyComponent={
-            <EmptyState title={emptyState.title} text={emptyState.text} />
-          }
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
-          contentContainerStyle={[
-            styles.content,
-            { paddingBottom: bottomTabBarHeight + spacing.md },
-          ]}
-          onScroll={onScroll}
-          scrollEventThrottle={16}
-          scrollEnabled={!isRowSwiping}
-          renderItem={({ item }) =>
-            item.type === "section" ? (
-              <FolderSectionHeader
-                count={item.count}
-                title={item.title}
-                variant={item.variant}
+          <FlashList
+            data={ideaListData}
+            estimatedItemSize={140}
+            keyExtractor={(item) => item.id}
+            keyboardShouldPersistTaps="handled"
+            maintainVisibleContentPosition={{ disabled: true }}
+            ListHeaderComponent={
+              <View style={styles.listHeader}>
+                {archivedIdeas.length > 0 ? (
+                  <ArchivedRow onPress={() => router.push("/archived/ideas")} />
+                ) : null}
+              </View>
+            }
+            ListEmptyComponent={
+              <EmptyState title={emptyState.title} text={emptyState.text} />
+            }
+            ItemSeparatorComponent={() => <View style={styles.separator} />}
+            contentContainerStyle={[
+              styles.content,
+              { paddingBottom: bottomTabBarHeight + spacing.md },
+            ]}
+            onScroll={onScroll}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={handleRefresh}
               />
-            ) : (
-              <SwipeableItemCard
-                onArchive={() => archiveIdea(item.idea.id)}
-                onDelete={() => confirmDeleteIdea(item.idea.id)}
-                onSwipeEnd={() => setIsRowSwiping(false)}
-                onSwipeStart={() => setIsRowSwiping(true)}
-              >
-                <IdeaCard
-                  idea={item.idea}
-                  onPress={() => router.push(`/item/${item.idea.id}`)}
+            }
+            scrollEventThrottle={16}
+            scrollEnabled={!isRowSwiping}
+            renderItem={({ item }) =>
+              item.type === "section" ? (
+                <FolderSectionHeader
+                  count={item.count}
+                  title={item.title}
+                  variant={item.variant}
                 />
-              </SwipeableItemCard>
-            )
-          }
-        />
+              ) : (
+                <SwipeableItemCard
+                  onArchive={() => archiveIdea(item.idea.id)}
+                  onDelete={() => confirmDeleteIdea(item.idea.id)}
+                  onSwipeEnd={() => setIsRowSwiping(false)}
+                  onSwipeStart={() => setIsRowSwiping(true)}
+                >
+                  <IdeaCard
+                    idea={item.idea}
+                    onPress={() => router.push(`/item/${item.idea.id}`)}
+                  />
+                </SwipeableItemCard>
+              )
+            }
+          />
         )}
       </MainScreenLayout>
       <FoldersModal

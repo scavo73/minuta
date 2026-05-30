@@ -2,7 +2,7 @@ import { FlashList } from "@shopify/flash-list";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Pressable, RefreshControl, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { showDeleteConfirm } from "../../components/actions/DeleteConfirmDialog";
@@ -30,22 +30,25 @@ import type { IdeaNote } from "../../types";
 
 type ArchivedIdeaListItem =
   | {
-    id: string;
-    type: "section";
-    count: number;
-    title: string;
-    variant?: "folder" | "unfiled";
-  }
+      id: string;
+      type: "section";
+      count: number;
+      title: string;
+      variant?: "folder" | "unfiled";
+    }
   | { id: string; type: "idea"; idea: IdeaNote };
 
 export default function ArchivedIdeasScreen() {
   const { theme } = useMinutaTheme();
   const insets = useSafeAreaInsets();
   const [isRowSwiping, setIsRowSwiping] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedFolderId, setSelectedFolderId] =
     useState<FolderFilterId>(ALL_FOLDERS_ID);
   const folders = useFoldersStore((state) => state.folders);
+  const fetchFolders = useFoldersStore((state) => state.fetchFolders);
   const ideas = useNotesStore((state) => state.ideas);
+  const fetchItems = useNotesStore((state) => state.fetchItems);
   const fetchArchivedItems = useNotesStore((state) => state.fetchArchivedItems);
   const deleteAllArchivedIdeas = useNotesStore(
     (state) => state.deleteAllArchivedIdeas,
@@ -63,42 +66,42 @@ export default function ArchivedIdeasScreen() {
   const archivedIdeaListData: ArchivedIdeaListItem[] =
     selectedFolderId === ALL_FOLDERS_ID
       ? [
-        ...(groupedArchivedIdeas.unfiledItems.length > 0
-          ? [
+          ...(groupedArchivedIdeas.unfiledItems.length > 0
+            ? [
+                {
+                  id: "section-unfiled",
+                  type: "section" as const,
+                  title: "General",
+                  count: groupedArchivedIdeas.unfiledItems.length,
+                  variant: "unfiled" as const,
+                },
+                ...groupedArchivedIdeas.unfiledItems.map((idea) => ({
+                  id: idea.id,
+                  type: "idea" as const,
+                  idea,
+                })),
+              ]
+            : []),
+          ...groupedArchivedIdeas.folderGroups.flatMap((group) => [
             {
-              id: "section-unfiled",
+              id: `section-${group.folder.id}`,
               type: "section" as const,
-              title: "General",
-              count: groupedArchivedIdeas.unfiledItems.length,
-              variant: "unfiled" as const,
+              title: group.folder.name,
+              count: group.items.length,
+              variant: "folder" as const,
             },
-            ...groupedArchivedIdeas.unfiledItems.map((idea) => ({
+            ...group.items.map((idea) => ({
               id: idea.id,
               type: "idea" as const,
               idea,
             })),
-          ]
-          : []),
-        ...groupedArchivedIdeas.folderGroups.flatMap((group) => [
-          {
-            id: `section-${group.folder.id}`,
-            type: "section" as const,
-            title: group.folder.name,
-            count: group.items.length,
-            variant: "folder" as const,
-          },
-          ...group.items.map((idea) => ({
-            id: idea.id,
-            type: "idea" as const,
-            idea,
-          })),
-        ]),
-      ]
+          ]),
+        ]
       : archivedIdeas.map((idea) => ({
-        id: idea.id,
-        type: "idea",
-        idea,
-      }));
+          id: idea.id,
+          type: "idea",
+          idea,
+        }));
   const previousArchivedCount = useRef(allArchivedIdeas.length);
 
   useEffect(() => {
@@ -160,6 +163,16 @@ export default function ArchivedIdeasScreen() {
     });
   };
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+
+    try {
+      await Promise.all([fetchItems(), fetchArchivedItems(), fetchFolders()]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   return (
     <MainScreenLayout
       actions={
@@ -208,6 +221,12 @@ export default function ArchivedIdeasScreen() {
             { paddingBottom: insets.bottom + spacing.md },
           ]}
           onScroll={onScroll}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+            />
+          }
           scrollEventThrottle={16}
           scrollEnabled={!isRowSwiping}
           renderItem={({ item }) =>

@@ -2,7 +2,7 @@ import { FlashList } from "@shopify/flash-list";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Pressable, RefreshControl, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { showDeleteConfirm } from "../../components/actions/DeleteConfirmDialog";
@@ -28,26 +28,27 @@ import { useFoldersStore } from "../../store/foldersStore";
 import { useNotesStore } from "../../store/notesStore";
 import type { Note } from "../../types";
 
-
-
 type ArchivedNoteListItem =
   | {
-    id: string;
-    type: "section";
-    count: number;
-    title: string;
-    variant?: "folder" | "unfiled";
-  }
+      id: string;
+      type: "section";
+      count: number;
+      title: string;
+      variant?: "folder" | "unfiled";
+    }
   | { id: string; type: "note"; note: Note };
 
 export default function ArchivedNotesScreen() {
   const { theme } = useMinutaTheme();
   const insets = useSafeAreaInsets();
   const [isRowSwiping, setIsRowSwiping] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedFolderId, setSelectedFolderId] =
     useState<FolderFilterId>(ALL_FOLDERS_ID);
   const folders = useFoldersStore((state) => state.folders);
+  const fetchFolders = useFoldersStore((state) => state.fetchFolders);
   const notes = useNotesStore((state) => state.notes);
+  const fetchItems = useNotesStore((state) => state.fetchItems);
   const fetchArchivedItems = useNotesStore((state) => state.fetchArchivedItems);
   const deleteAllArchivedNotes = useNotesStore(
     (state) => state.deleteAllArchivedNotes,
@@ -65,42 +66,42 @@ export default function ArchivedNotesScreen() {
   const archivedNoteListData: ArchivedNoteListItem[] =
     selectedFolderId === ALL_FOLDERS_ID
       ? [
-        ...(groupedArchivedNotes.unfiledItems.length > 0
-          ? [
+          ...(groupedArchivedNotes.unfiledItems.length > 0
+            ? [
+                {
+                  id: "section-unfiled",
+                  type: "section" as const,
+                  title: "General",
+                  count: groupedArchivedNotes.unfiledItems.length,
+                  variant: "unfiled" as const,
+                },
+                ...groupedArchivedNotes.unfiledItems.map((note) => ({
+                  id: note.id,
+                  type: "note" as const,
+                  note,
+                })),
+              ]
+            : []),
+          ...groupedArchivedNotes.folderGroups.flatMap((group) => [
             {
-              id: "section-unfiled",
+              id: `section-${group.folder.id}`,
               type: "section" as const,
-              title: "General",
-              count: groupedArchivedNotes.unfiledItems.length,
-              variant: "unfiled" as const,
+              title: group.folder.name,
+              count: group.items.length,
+              variant: "folder" as const,
             },
-            ...groupedArchivedNotes.unfiledItems.map((note) => ({
+            ...group.items.map((note) => ({
               id: note.id,
               type: "note" as const,
               note,
             })),
-          ]
-          : []),
-        ...groupedArchivedNotes.folderGroups.flatMap((group) => [
-          {
-            id: `section-${group.folder.id}`,
-            type: "section" as const,
-            title: group.folder.name,
-            count: group.items.length,
-            variant: "folder" as const,
-          },
-          ...group.items.map((note) => ({
-            id: note.id,
-            type: "note" as const,
-            note,
-          })),
-        ]),
-      ]
+          ]),
+        ]
       : archivedNotes.map((note) => ({
-        id: note.id,
-        type: "note",
-        note,
-      }));
+          id: note.id,
+          type: "note",
+          note,
+        }));
   const previousArchivedCount = useRef(allArchivedNotes.length);
 
   useEffect(() => {
@@ -162,6 +163,16 @@ export default function ArchivedNotesScreen() {
     });
   };
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+
+    try {
+      await Promise.all([fetchItems(), fetchArchivedItems(), fetchFolders()]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   return (
     <MainScreenLayout
       actions={
@@ -210,6 +221,12 @@ export default function ArchivedNotesScreen() {
             { paddingBottom: insets.bottom + spacing.md },
           ]}
           onScroll={onScroll}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+            />
+          }
           scrollEventThrottle={16}
           scrollEnabled={!isRowSwiping}
           renderItem={({ item }) =>

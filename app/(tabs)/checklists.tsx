@@ -9,6 +9,7 @@ import {
   NativeSyntheticEvent,
   Platform,
   Pressable,
+  RefreshControl,
   StyleSheet,
   View,
 } from "react-native";
@@ -61,6 +62,7 @@ export default function ChecklistsScreen() {
   const currentScrollY = useRef(0);
   const taskLayouts = useRef(new Map<string, { height: number; y: number }>());
   const [searchQuery, setSearchQuery] = useState("");
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isRowSwiping, setIsRowSwiping] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingTaskText, setEditingTaskText] = useState("");
@@ -74,6 +76,7 @@ export default function ChecklistsScreen() {
     useState<FolderFilterId>(ALL_FOLDERS_ID);
   const folders = useFoldersStore((state) => state.folders);
   const archivedFolders = useFoldersStore((state) => state.archivedFolders);
+  const fetchFolders = useFoldersStore((state) => state.fetchFolders);
   const setCreateContext = useCreateContextStore(
     (state) => state.setCreateContext,
   );
@@ -89,6 +92,7 @@ export default function ChecklistsScreen() {
   const updateTask = useNotesStore((state) => state.updateTask);
   const notes = useNotesStore((state) => state.notes);
   const ideas = useNotesStore((state) => state.ideas);
+  const fetchItems = useNotesStore((state) => state.fetchItems);
   const normalizedQuery = normalizeSearch(searchQuery);
   const visibleTasks = tasks.filter((task) => !task.isArchived);
   const archivedTasks = tasks.filter((task) => task.isArchived);
@@ -338,6 +342,16 @@ export default function ChecklistsScreen() {
     }
   };
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+
+    try {
+      await Promise.all([fetchItems(), fetchFolders()]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   const handleSectionAction = (action: ItemAction) => {
     if (action === "markAll") {
       markAllTasksDone();
@@ -439,7 +453,9 @@ export default function ChecklistsScreen() {
                 </View>
               ) : archivedTasks.length > 0 ? (
                 <View style={styles.listHeader}>
-                  <ArchivedRow onPress={() => router.push("/archived/tareas")} />
+                  <ArchivedRow
+                    onPress={() => router.push("/archived/tareas")}
+                  />
                 </View>
               ) : null
             }
@@ -457,6 +473,12 @@ export default function ChecklistsScreen() {
               },
             ]}
             onScroll={(event) => handleListScroll(event, onScroll)}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={handleRefresh}
+              />
+            }
             scrollEnabled={!isRowSwiping}
             scrollEventThrottle={16}
             renderItem={({ item }) =>

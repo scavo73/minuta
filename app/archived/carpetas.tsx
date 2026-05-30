@@ -1,7 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { showDeleteConfirm } from "../../components/actions/DeleteConfirmDialog";
@@ -20,10 +27,12 @@ export default function ArchivedFoldersScreen() {
   const { theme } = useMinutaTheme();
   const insets = useSafeAreaInsets();
   const archivedFolders = useFoldersStore((state) => state.archivedFolders);
+  const fetchFolders = useFoldersStore((state) => state.fetchFolders);
   const notes = useNotesStore((state) => state.notes);
   const ideas = useNotesStore((state) => state.ideas);
   const tasks = useNotesStore((state) => state.tasks);
   const [isSelecting, setIsSelecting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedFolderIds, setSelectedFolderIds] = useState<string[]>([]);
   const previousArchivedCount = useRef(archivedFolders.length);
 
@@ -43,6 +52,16 @@ export default function ArchivedFoldersScreen() {
     fetchArchivedFolders();
   }, [fetchArchivedFolders]);
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+
+    try {
+      await Promise.all([fetchFolders(), fetchArchivedFolders()]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   const toggleFolderSelection = (folderId: string) => {
     setSelectedFolderIds((currentIds) =>
       currentIds.includes(folderId)
@@ -60,7 +79,9 @@ export default function ArchivedFoldersScreen() {
   };
 
   const unarchiveSelectedFolders = async () => {
-    await Promise.all(selectedFolderIds.map((folderId) => unarchiveFolder(folderId)));
+    await Promise.all(
+      selectedFolderIds.map((folderId) => unarchiveFolder(folderId)),
+    );
     setSelectedFolderIds([]);
     setIsSelecting(false);
   };
@@ -103,17 +124,20 @@ export default function ArchivedFoldersScreen() {
   };
 
   const menuItems = [
-    { action: "select" as const, label: isSelecting ? "Cancelar selección" : "Seleccionar" },
+    {
+      action: "select" as const,
+      label: isSelecting ? "Cancelar selección" : "Seleccionar",
+    },
     { action: "selectAll" as const, label: "Seleccionar todas" },
     ...(selectedFolderIds.length > 0
       ? [
-        { action: "unarchive" as const, label: "Desarchivar seleccionadas" },
-        {
-          action: "deleteAll" as const,
-          label: "Borrar seleccionadas",
-          destructive: true,
-        },
-      ]
+          { action: "unarchive" as const, label: "Desarchivar seleccionadas" },
+          {
+            action: "deleteAll" as const,
+            label: "Borrar seleccionadas",
+            destructive: true,
+          },
+        ]
       : []),
   ];
 
@@ -160,12 +184,17 @@ export default function ArchivedFoldersScreen() {
         <Ionicons color={theme.mutedText} name="folder-outline" size={20} />
         <View style={styles.folderTextBlock}>
           <View style={styles.folderTitleRow}>
-            <Text numberOfLines={1} style={[styles.folderTitle, { color: theme.text }]}>
+            <Text
+              numberOfLines={1}
+              style={[styles.folderTitle, { color: theme.text }]}
+            >
               {folder.name}
             </Text>
             {total > 0 ? (
               <View style={styles.folderMeta}>
-                <Text style={[styles.folderMetaCount, { color: theme.mutedText }]}>
+                <Text
+                  style={[styles.folderMetaCount, { color: theme.mutedText }]}
+                >
                   {total}
                 </Text>
                 <View style={styles.folderMetaIcons}>
@@ -204,9 +233,7 @@ export default function ArchivedFoldersScreen() {
 
   return (
     <MainScreenLayout
-      actions={
-        <SectionActionsMenu items={menuItems} onSelect={handleAction} />
-      }
+      actions={<SectionActionsMenu items={menuItems} onSelect={handleAction} />}
       centerHeaderTitle
       compactHeader
       leadingAction={
@@ -226,6 +253,12 @@ export default function ArchivedFoldersScreen() {
             { paddingBottom: insets.bottom + spacing.md },
           ]}
           onScroll={onScroll}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+            />
+          }
           scrollEventThrottle={16}
         >
           {archivedFolders.length === 0 ? (
