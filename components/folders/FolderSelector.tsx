@@ -36,8 +36,8 @@ export function FolderSelector({
               style={[
                 styles.option,
                 {
-                  backgroundColor: theme.surface,
-                  borderColor: isSelected ? theme.primary : theme.mutedText,
+                  backgroundColor: theme.chipBackground,
+                  borderColor: isSelected ? theme.primary : theme.border,
                   opacity: isSelected ? 1 : 0.72,
                 },
               ]}

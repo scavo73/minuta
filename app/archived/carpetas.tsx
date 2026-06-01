@@ -200,12 +200,12 @@ export default function ArchivedFoldersScreen() {
               styles.selectionBadge,
               {
                 backgroundColor: isSelected ? theme.primary : theme.background,
-                borderColor: isSelected ? theme.primary : theme.mutedText,
+                borderColor: isSelected ? theme.primary : theme.border,
               },
             ]}
           >
             {isSelected ? (
-              <Ionicons color="#FFFFFF" name="checkmark" size={14} />
+              <Ionicons color={theme.primaryText} name="checkmark" size={14} />
             ) : null}
           </View>
         ) : null}

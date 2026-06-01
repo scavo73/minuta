@@ -43,7 +43,7 @@ export function MoveToFolderModal({
             <Pressable
               accessibilityLabel="Cerrar mover a carpeta"
               onPress={onClose}
-              style={[styles.iconButton, { backgroundColor: theme.surface }]}
+              style={[styles.iconButton, { backgroundColor: theme.card }]}
             >
               <Ionicons color={theme.text} name="close" size={22} />
             </Pressable>
@@ -94,7 +94,7 @@ function FolderMoveRow({
   return (
     <Pressable
       onPress={onPress}
-      style={[styles.folderRow, { backgroundColor: theme.surface }]}
+      style={[styles.folderRow, { backgroundColor: theme.card }]}
     >
       <Ionicons
         color={isSelected ? theme.primary : theme.mutedText}

@@ -433,7 +433,12 @@ export default function ChecklistsScreen() {
         compactHeader={editingTaskId != null}
         onSearchChange={setSearchQuery}
       >
-        {({ onScroll }) => (
+        {({
+          onMomentumScrollEnd,
+          onScroll,
+          onScrollBeginDrag,
+          onScrollEndDrag,
+        }) => (
           <FlashList
             ref={listRef}
             data={displayedTaskListData}
@@ -473,6 +478,9 @@ export default function ChecklistsScreen() {
               },
             ]}
             onScroll={(event) => handleListScroll(event, onScroll)}
+            onScrollBeginDrag={onScrollBeginDrag}
+            onScrollEndDrag={onScrollEndDrag}
+            onMomentumScrollEnd={onMomentumScrollEnd}
             refreshControl={
               <RefreshControl
                 refreshing={isRefreshing}

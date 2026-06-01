@@ -82,7 +82,7 @@ export default function FolderDetailScreen() {
           </Text>
           <Pressable
             onPress={() => router.back()}
-            style={[styles.iconButton, { backgroundColor: theme.surface }]}
+            style={[styles.iconButton, { backgroundColor: theme.card }]}
           >
             <Ionicons color={theme.text} name="arrow-back" size={22} />
           </Pressable>
@@ -199,7 +199,7 @@ export default function FolderDetailScreen() {
         <View style={styles.topBar}>
           <Pressable
             onPress={() => router.back()}
-            style={[styles.iconButton, { backgroundColor: theme.surface }]}
+            style={[styles.iconButton, { backgroundColor: theme.card }]}
           >
             <Ionicons color={theme.text} name="arrow-back" size={22} />
           </Pressable>
@@ -225,7 +225,7 @@ export default function FolderDetailScreen() {
 
         <Text style={[styles.title, { color: theme.text }]}>{folder.name}</Text>
 
-        <View style={[styles.summary, { backgroundColor: theme.surface }]}>
+        <View style={[styles.summary, { backgroundColor: theme.card }]}>
           <View style={styles.summaryRow}>
             <Ionicons color={theme.mutedText} name="folder-outline" size={20} />
             <Text style={[styles.summaryText, { color: theme.text }]}>
@@ -275,7 +275,15 @@ export default function FolderDetailScreen() {
 
       <Modal animationType="fade" transparent visible={isEditingName}>
         <View style={styles.modalBackdrop}>
-          <View style={[styles.modal, { backgroundColor: theme.background }]}>
+          <View
+            style={[
+              styles.modal,
+              {
+                backgroundColor: theme.modalBackground,
+                borderColor: theme.border,
+              },
+            ]}
+          >
             <Text style={[styles.modalTitle, { color: theme.text }]}>
               Editar nombre
             </Text>
@@ -287,8 +295,8 @@ export default function FolderDetailScreen() {
               style={[
                 styles.input,
                 {
-                  backgroundColor: theme.surface,
-                  borderColor: theme.mutedText,
+                  backgroundColor: theme.inputBackground,
+                  borderColor: theme.border,
                   color: theme.text,
                 },
               ]}
@@ -299,7 +307,7 @@ export default function FolderDetailScreen() {
                 onPress={() => setIsEditingName(false)}
                 style={[
                   styles.secondaryButton,
-                  { backgroundColor: theme.surface },
+                  { backgroundColor: theme.card },
                 ]}
               >
                 <Text
@@ -315,7 +323,14 @@ export default function FolderDetailScreen() {
                   { backgroundColor: theme.primary },
                 ]}
               >
-                <Text style={styles.primaryButtonText}>Guardar</Text>
+                <Text
+                  style={[
+                    styles.primaryButtonText,
+                    { color: theme.primaryText },
+                  ]}
+                >
+                  Guardar
+                </Text>
               </Pressable>
             </View>
           </View>
@@ -391,6 +406,7 @@ const styles = StyleSheet.create({
   },
   modal: {
     borderRadius: radius.lg,
+    borderWidth: 1,
     gap: spacing.md,
     padding: spacing.md,
     width: "100%",
@@ -425,7 +441,6 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   primaryButtonText: {
-    color: "#FFFFFF",
     fontSize: typography.body,
     fontWeight: "700",
     textAlign: "center",

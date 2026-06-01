@@ -171,7 +171,7 @@ export default function ItemDetailScreen() {
             onPress={() => router.back()}
             style={[styles.primaryButton, { backgroundColor: theme.primary }]}
           >
-            <Ionicons color="#FFFFFF" name="arrow-back" size={22} />
+            <Ionicons color={theme.primaryText} name="arrow-back" size={22} />
           </Pressable>
         </View>
       </SafeAreaView>
@@ -186,7 +186,7 @@ export default function ItemDetailScreen() {
         <View style={styles.topBar}>
           <Pressable
             onPress={() => router.back()}
-            style={[styles.backButton, { backgroundColor: theme.surface }]}
+            style={[styles.backButton, { backgroundColor: theme.card }]}
           >
             <Ionicons color={theme.text} name="arrow-back" size={22} />
           </Pressable>
@@ -214,7 +214,7 @@ export default function ItemDetailScreen() {
               <View
                 style={[
                   styles.folderBadge,
-                  { backgroundColor: theme.surface },
+                  { backgroundColor: theme.chipBackground },
                 ]}
               >
                 <Ionicons
@@ -251,7 +251,12 @@ export default function ItemDetailScreen() {
               onPress={handleToggleTask}
               style={[styles.primaryButton, { backgroundColor: theme.primary }]}
             >
-              <Text style={styles.primaryButtonText}>
+              <Text
+                style={[
+                  styles.primaryButtonText,
+                  { color: theme.primaryText },
+                ]}
+              >
                 Marcar como {item.isCompleted ? "pendiente" : "hecha"}
               </Text>
             </Pressable>
@@ -267,7 +272,7 @@ export default function ItemDetailScreen() {
               <View
                 style={[
                   styles.folderBadge,
-                  { backgroundColor: theme.surface },
+                  { backgroundColor: theme.chipBackground },
                 ]}
               >
                 <Ionicons
@@ -288,7 +293,10 @@ export default function ItemDetailScreen() {
                 {item.tags.map((tag) => (
                   <View
                     key={tag}
-                    style={[styles.chip, { backgroundColor: theme.surface }]}
+                    style={[
+                      styles.chip,
+                      { backgroundColor: theme.chipBackground },
+                    ]}
                   >
                     <Text style={[styles.chipText, { color: theme.mutedText }]}>
                       {tag}
@@ -301,8 +309,13 @@ export default function ItemDetailScreen() {
         ) : null}
 
         {isTask(item) ? (
-          <Pressable onPress={confirmDelete} style={styles.deleteButton}>
-            <Text style={styles.deleteButtonText}>Eliminar</Text>
+          <Pressable
+            onPress={confirmDelete}
+            style={[styles.deleteButton, { borderColor: theme.danger }]}
+          >
+            <Text style={[styles.deleteButtonText, { color: theme.danger }]}>
+              Eliminar
+            </Text>
           </Pressable>
         ) : null}
       </ScrollView>
@@ -369,7 +382,6 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   primaryButtonText: {
-    color: "#FFFFFF",
     fontSize: typography.body,
     fontWeight: "700",
     textAlign: "center",
@@ -405,13 +417,11 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     borderRadius: radius.md,
-    borderColor: "#DC2626",
     borderWidth: 1,
     marginTop: spacing.lg,
     padding: spacing.md,
   },
   deleteButtonText: {
-    color: "#DC2626",
     fontSize: typography.body,
     fontWeight: "700",
     textAlign: "center",

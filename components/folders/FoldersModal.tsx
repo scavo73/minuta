@@ -72,7 +72,7 @@ export function FoldersModal({
               <Pressable
                 accessibilityLabel="Cerrar carpetas"
                 onPress={onClose}
-                style={[styles.iconButton, { backgroundColor: theme.surface }]}
+                style={[styles.iconButton, { backgroundColor: theme.card }]}
               >
                 <Ionicons color={theme.text} name="close" size={22} />
               </Pressable>
@@ -102,8 +102,8 @@ export function FoldersModal({
                 style={[
                   styles.input,
                   {
-                    backgroundColor: theme.surface,
-                    borderColor: theme.mutedText,
+                    backgroundColor: theme.inputBackground,
+                    borderColor: theme.border,
                     color: theme.text,
                   },
                 ]}
@@ -121,7 +121,7 @@ export function FoldersModal({
                 }}
                 style={[
                   styles.folderRow,
-                  { backgroundColor: theme.surface },
+                  { backgroundColor: theme.card },
                 ]}
               >
                 <Ionicons
@@ -155,7 +155,7 @@ export function FoldersModal({
                       }}
                       style={[
                         styles.folderRow,
-                        { backgroundColor: theme.surface },
+                        { backgroundColor: theme.card },
                       ]}
                     >
                       <Ionicons

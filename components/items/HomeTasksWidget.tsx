@@ -120,14 +120,14 @@ function HomeTaskRow({ onComplete, task }: HomeTaskRowProps) {
       >
         <Pressable
           onPress={completeTask}
-          style={[styles.taskRow, { backgroundColor: theme.surface }]}
+          style={[styles.taskRow, { backgroundColor: theme.card }]}
         >
           <View
             style={[
               styles.checkbox,
               {
                 backgroundColor: "transparent",
-                borderColor: theme.mutedText,
+                borderColor: theme.border,
               },
             ]}
           />
@@ -173,7 +173,7 @@ export function HomeTasksWidget({ tasks, onToggleTask }: HomeTasksWidgetProps) {
           <Pressable
             accessibilityLabel="Ver todas las tareas"
             onPress={() => router.push("/checklists")}
-            style={[styles.moreButton, { backgroundColor: theme.surface }]}
+            style={[styles.moreButton, { backgroundColor: theme.card }]}
           >
             <Ionicons
               color={theme.text}
@@ -187,7 +187,7 @@ export function HomeTasksWidget({ tasks, onToggleTask }: HomeTasksWidgetProps) {
 
       <View style={styles.rows}>
         {visibleTasks.length === 0 ? (
-          <View style={[styles.emptyRow, { backgroundColor: theme.surface }]}>
+          <View style={[styles.emptyRow, { backgroundColor: theme.card }]}>
             <Text style={[styles.emptyText, { color: theme.mutedText }]}>
               Sin tareas por ahora
             </Text>

@@ -13,6 +13,7 @@ import {
 } from "react-native";
 
 import { radius, spacing, typography } from "../../constants/theme";
+import { useMinutaTheme } from "../../constants/useMinutaTheme";
 
 interface SwipeableItemCardProps {
   onArchive: () => void;
@@ -36,6 +37,7 @@ export function SwipeableItemCard({
   onSwipeEnd,
   onSwipeStart,
 }: PropsWithChildren<SwipeableItemCardProps>) {
+  const { theme } = useMinutaTheme();
   const translateX = useRef(new Animated.Value(0)).current;
   const startX = useRef(0);
   const hasTriggeredHaptic = useRef(false);
@@ -168,7 +170,7 @@ export function SwipeableItemCard({
             close();
             onDelete();
           }}
-          style={[styles.action, styles.deleteAction]}
+          style={[styles.action, { backgroundColor: theme.danger }]}
         >
           <Ionicons color="#FFFFFF" name="trash-outline" size={20} />
           <Text style={styles.actionText}>Borrar</Text>
@@ -206,9 +208,6 @@ const styles = StyleSheet.create({
   },
   archiveAction: {
     backgroundColor: "#0EA5E9",
-  },
-  deleteAction: {
-    backgroundColor: "#DC2626",
   },
   actionText: {
     color: "#FFFFFF",

@@ -5,13 +5,23 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 
 import { GluestackUIProvider } from "../components/ui/gluestack-ui-provider";
+import { MinutaThemeProvider, useMinutaTheme } from "../constants/useMinutaTheme";
 import { getToken } from "../lib/authStorage";
 import { useFoldersStore } from "../store/foldersStore";
 import { useNotesStore } from "../store/notesStore";
 
 export default function RootLayout() {
+  return (
+    <MinutaThemeProvider>
+      <RootLayoutContent />
+    </MinutaThemeProvider>
+  );
+}
+
+function RootLayoutContent() {
   const fetchFolders = useFoldersStore((state) => state.fetchFolders);
   const fetchItems = useNotesStore((state) => state.fetchItems);
+  const { colorScheme, isDark } = useMinutaTheme();
 
   useEffect(() => {
     let isMounted = true;
@@ -33,8 +43,8 @@ export default function RootLayout() {
   }, [fetchFolders, fetchItems]);
 
   return (
-    <GluestackUIProvider mode="system">
-      <StatusBar style="auto" />
+    <GluestackUIProvider mode={colorScheme}>
+      <StatusBar style={isDark ? "light" : "dark"} />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="account" />

@@ -48,7 +48,7 @@ export function FolderChip({
   const visibleCounts = getVisibleCounts(folder, context);
   const total = visibleCounts.reduce((sum, item) => sum + item.count, 0);
   const Container = onPress ? Pressable : View;
-  const iconColor = isSelected ? "#FFFFFF" : theme.mutedText;
+  const iconColor = isSelected ? theme.primaryText : theme.mutedText;
 
   return (
     <Container
@@ -56,13 +56,16 @@ export function FolderChip({
       style={[
         styles.chip,
         {
-          backgroundColor: isSelected ? theme.primary : theme.surface,
+          backgroundColor: isSelected ? theme.primary : theme.chipBackground,
         },
       ]}
     >
       <Ionicons color={theme.mutedText} name="folder-outline" size={15} />
       <Text
-        style={[styles.name, { color: isSelected ? "#FFFFFF" : theme.text }]}
+        style={[
+          styles.name,
+          { color: isSelected ? theme.primaryText : theme.text },
+        ]}
         numberOfLines={1}
       >
         {folder.name}
@@ -70,7 +73,7 @@ export function FolderChip({
       <Text
         style={[
           styles.total,
-          { color: isSelected ? "#FFFFFF" : theme.mutedText },
+          { color: isSelected ? theme.primaryText : theme.mutedText },
         ]}
       >
         {total}

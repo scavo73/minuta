@@ -92,7 +92,7 @@ export default function SignInScreen() {
       </View>
 
       {error ? (
-        <Text style={[styles.errorText, { color: "#DC2626" }]}>{error}</Text>
+        <Text style={[styles.errorText, { color: theme.danger }]}>{error}</Text>
       ) : null}
 
       <AuthPrimaryButton

@@ -1,12 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useState } from "react";
 import {
   Alert,
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   View,
 } from "react-native";
@@ -15,7 +13,15 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 
-import { radius, spacing, typography } from "../constants/theme";
+import {
+  darkTheme,
+  lightTheme,
+  radius,
+  spacing,
+  typography,
+  type MinutaTheme,
+  type ThemePreference,
+} from "../constants/theme";
 import { useMinutaTheme } from "../constants/useMinutaTheme";
 import { deleteToken } from "../lib/authStorage";
 import { useFoldersStore } from "../store/foldersStore";
@@ -26,6 +32,98 @@ type AccountIconName = React.ComponentProps<typeof Ionicons>["name"];
 interface AccountSectionProps {
   children: React.ReactNode;
   title: string;
+}
+
+interface AppearanceOptionCardProps {
+  label: string;
+  mode: ThemePreference;
+  previewTheme: MinutaTheme;
+  selected: boolean;
+  onPress: (mode: ThemePreference) => void;
+}
+
+function AppearanceOptionCard({
+  label,
+  mode,
+  onPress,
+  previewTheme,
+  selected,
+}: AppearanceOptionCardProps) {
+  const { theme } = useMinutaTheme();
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      onPress={() => onPress(mode)}
+      style={[
+        styles.appearanceCard,
+        {
+          backgroundColor: theme.card,
+          borderColor: selected ? theme.primary : theme.border,
+        },
+      ]}
+    >
+      <View
+        style={[
+          styles.previewFrame,
+          { backgroundColor: previewTheme.background },
+        ]}
+      >
+        <View
+          style={[
+            styles.previewHeader,
+            { backgroundColor: previewTheme.surface },
+          ]}
+        >
+          <View
+            style={[
+              styles.previewDot,
+              { backgroundColor: previewTheme.primary },
+            ]}
+          />
+          <View
+            style={[
+              styles.previewLine,
+              { backgroundColor: previewTheme.mutedText },
+            ]}
+          />
+        </View>
+        <View style={styles.previewBody}>
+          <View
+            style={[
+              styles.previewPanel,
+              { backgroundColor: previewTheme.card },
+            ]}
+          />
+          <View
+            style={[
+              styles.previewPanelSmall,
+              { backgroundColor: previewTheme.chipBackground },
+            ]}
+          />
+        </View>
+      </View>
+      <View style={styles.appearanceFooter}>
+        <Text style={[styles.appearanceLabel, { color: theme.text }]}>
+          {label}
+        </Text>
+        <View
+          style={[
+            styles.appearanceCheck,
+            {
+              backgroundColor: selected ? theme.primary : "transparent",
+              borderColor: selected ? theme.primary : theme.border,
+            },
+          ]}
+        >
+          {selected ? (
+            <Ionicons color={theme.primaryText} name="checkmark" size={13} />
+          ) : null}
+        </View>
+      </View>
+    </Pressable>
+  );
 }
 
 interface AccountRowProps {
@@ -61,8 +159,8 @@ function AccountRow({
   subtitle,
 }: AccountRowProps) {
   const { theme } = useMinutaTheme();
-  const iconColor = destructive ? "#DC2626" : theme.primary;
-  const textColor = destructive ? "#DC2626" : theme.text;
+  const iconColor = destructive ? theme.danger : theme.primary;
+  const textColor = destructive ? theme.danger : theme.text;
 
   return (
     <Pressable
@@ -70,7 +168,7 @@ function AccountRow({
       onPress={onPress}
       style={({ pressed }) => [styles.row, { opacity: pressed ? 0.72 : 1 }]}
     >
-      <View style={[styles.rowIconBox, { backgroundColor: theme.background }]}>
+      <View style={[styles.rowIconBox, { backgroundColor: theme.card }]}>
         <Ionicons color={iconColor} name={icon} size={20} />
       </View>
       <View style={styles.rowTextBlock}>
@@ -89,9 +187,8 @@ function AccountRow({
 }
 
 export default function AccountScreen() {
-  const { theme, isDark } = useMinutaTheme();
+  const { theme, themePreference, setThemePreference } = useMinutaTheme();
   const insets = useSafeAreaInsets();
-  const [isDarkModePreview, setIsDarkModePreview] = useState(isDark);
   const clearFolders = useFoldersStore((state) => state.clearFolders);
   const clearItems = useNotesStore((state) => state.clearItems);
 
@@ -129,7 +226,7 @@ export default function AccountScreen() {
           accessibilityRole="button"
           accessibilityLabel="Volver"
           onPress={() => router.back()}
-          style={[styles.headerButton, { backgroundColor: theme.surface }]}
+          style={[styles.headerButton, { backgroundColor: theme.card }]}
         >
           <Ionicons color={theme.text} name="arrow-back" size={22} />
         </Pressable>
@@ -143,9 +240,9 @@ export default function AccountScreen() {
           { paddingBottom: insets.bottom + spacing.lg },
         ]}
       >
-        <View style={[styles.userCard, { backgroundColor: theme.surface }]}>
+        <View style={[styles.userCard, { backgroundColor: theme.card }]}>
           <View style={[styles.avatar, { backgroundColor: theme.primary }]}>
-            <Ionicons color="#FFFFFF" name="person" size={38} />
+            <Ionicons color={theme.primaryText} name="person" size={38} />
           </View>
           <View style={styles.userCopy}>
             <Text style={[styles.userTitle, { color: theme.text }]}>
@@ -160,7 +257,11 @@ export default function AccountScreen() {
             onPress={() => router.push("/auth/sign-in")}
             style={[styles.primaryButton, { backgroundColor: theme.primary }]}
           >
-            <Text style={styles.primaryButtonText}>Iniciar sesión</Text>
+            <Text
+              style={[styles.primaryButtonText, { color: theme.primaryText }]}
+            >
+              Iniciar sesión
+            </Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"
@@ -192,21 +293,30 @@ export default function AccountScreen() {
           />
         </AccountSection>
 
-        <AccountSection title="Apariencia">
-          <AccountRow
-            icon="moon-outline"
-            label="Modo oscuro / claro"
-            subtitle="Preparado para conectar al tema de la app."
-            rightElement={
-              <Switch
-                value={isDarkModePreview}
-                onValueChange={(value) => {
-                  // TODO: conectar con preferencia real de tema.
-                  setIsDarkModePreview(value);
-                }}
-              />
-            }
-          />
+        <AccountSection title="Appearance">
+          <View style={styles.appearanceGrid}>
+            <AppearanceOptionCard
+              label="Light"
+              mode="light"
+              previewTheme={lightTheme}
+              selected={themePreference === "light"}
+              onPress={setThemePreference}
+            />
+            <AppearanceOptionCard
+              label="Dark"
+              mode="dark"
+              previewTheme={darkTheme}
+              selected={themePreference === "dark"}
+              onPress={setThemePreference}
+            />
+            <AppearanceOptionCard
+              label="System"
+              mode="system"
+              previewTheme={theme}
+              selected={themePreference === "system"}
+              onPress={setThemePreference}
+            />
+          </View>
         </AccountSection>
 
         <AccountSection title="Sesión">
@@ -224,6 +334,37 @@ export default function AccountScreen() {
 }
 
 const styles = StyleSheet.create({
+  appearanceCard: {
+    borderRadius: radius.md,
+    borderWidth: 2,
+    flex: 1,
+    gap: spacing.sm,
+    minWidth: 96,
+    padding: spacing.sm,
+  },
+  appearanceCheck: {
+    alignItems: "center",
+    borderRadius: 999,
+    borderWidth: 1.5,
+    height: 22,
+    justifyContent: "center",
+    width: 22,
+  },
+  appearanceFooter: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  appearanceGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    padding: spacing.md,
+  },
+  appearanceLabel: {
+    fontSize: typography.small,
+    fontWeight: "800",
+  },
   avatar: {
     alignItems: "center",
     borderRadius: 999,
@@ -266,9 +407,45 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   primaryButtonText: {
-    color: "#FFFFFF",
     fontSize: typography.body,
     fontWeight: "800",
+  },
+  previewBody: {
+    flex: 1,
+    gap: 5,
+    padding: 7,
+  },
+  previewDot: {
+    borderRadius: 999,
+    height: 10,
+    width: 10,
+  },
+  previewFrame: {
+    aspectRatio: 1.18,
+    borderRadius: radius.sm,
+    overflow: "hidden",
+  },
+  previewHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 5,
+    height: 22,
+    paddingHorizontal: 7,
+  },
+  previewLine: {
+    borderRadius: 999,
+    height: 7,
+    opacity: 0.7,
+    width: "52%",
+  },
+  previewPanel: {
+    borderRadius: 7,
+    flex: 1,
+  },
+  previewPanelSmall: {
+    borderRadius: 999,
+    height: 10,
+    width: "68%",
   },
   row: {
     alignItems: "center",

@@ -72,7 +72,7 @@ export function AuthScaffold({ children, subtitle, title }: AuthScaffoldProps) {
           accessibilityRole="button"
           accessibilityLabel="Volver"
           onPress={() => router.back()}
-          style={[styles.headerButton, { backgroundColor: theme.surface }]}
+          style={[styles.headerButton, { backgroundColor: theme.card }]}
         >
           <Ionicons color={theme.text} name="arrow-back" size={22} />
         </Pressable>
@@ -116,7 +116,15 @@ export function AuthInput({
   const { theme } = useMinutaTheme();
 
   return (
-    <View style={[styles.inputShell, { backgroundColor: theme.surface }]}>
+    <View
+      style={[
+        styles.inputShell,
+        {
+          backgroundColor: theme.inputBackground,
+          borderColor: theme.border,
+        },
+      ]}
+    >
       <Ionicons color={theme.mutedText} name={icon} size={20} />
       <TextInput
         autoCapitalize="none"
@@ -158,9 +166,11 @@ export function AuthPrimaryButton({
       ]}
     >
       {loading ? (
-        <ActivityIndicator color="#FFFFFF" />
+        <ActivityIndicator color={theme.primaryText} />
       ) : (
-        <Text style={styles.primaryButtonText}>{label}</Text>
+        <Text style={[styles.primaryButtonText, { color: theme.primaryText }]}>
+          {label}
+        </Text>
       )}
     </Pressable>
   );
@@ -252,7 +262,7 @@ function AuthHero({
       <Animated.View
         style={[
           styles.heroBlockSmall,
-          { backgroundColor: theme.surface },
+          { backgroundColor: theme.card },
           {
             opacity: decorProgress,
             transform: [
@@ -282,7 +292,7 @@ function AuthHero({
       <Animated.View
         style={[
           styles.heroCard,
-          { backgroundColor: theme.surface },
+          { backgroundColor: theme.card },
           {
             opacity: messageProgress,
             transform: [
@@ -457,6 +467,7 @@ const styles = StyleSheet.create({
   },
   inputShell: {
     alignItems: "center",
+    borderWidth: 1,
     borderRadius: radius.md,
     flexDirection: "row",
     gap: spacing.sm,
@@ -482,7 +493,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   primaryButtonText: {
-    color: "#FFFFFF",
     fontSize: typography.body,
     fontWeight: "800",
   },

@@ -31,11 +31,15 @@ export function TaskCard({ onPress, task, onToggle }: TaskCardProps) {
             styles.checkbox,
             {
               backgroundColor: task.isCompleted ? theme.primary : 'transparent',
-              borderColor: task.isCompleted ? theme.primary : theme.mutedText,
+              borderColor: task.isCompleted ? theme.primary : theme.border,
             },
           ]}
         >
-          {task.isCompleted ? <Text style={styles.checkmark}>✓</Text> : null}
+          {task.isCompleted ? (
+            <Text style={[styles.checkmark, { color: theme.primaryText }]}>
+              ✓
+            </Text>
+          ) : null}
         </View>
         <View style={styles.content}>
           <Text style={[styles.label, { color: theme.mutedText }]}>
@@ -81,7 +85,6 @@ const styles = StyleSheet.create({
     width: 28,
   },
   checkmark: {
-    color: '#FFFFFF',
     fontSize: typography.body,
     fontWeight: '700',
   },

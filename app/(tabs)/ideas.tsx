@@ -236,7 +236,12 @@ export default function IdeasScreen() {
         title="Ideas"
         onSearchChange={setSearchQuery}
       >
-        {({ onScroll }) => (
+        {({
+          onMomentumScrollEnd,
+          onScroll,
+          onScrollBeginDrag,
+          onScrollEndDrag,
+        }) => (
           <FlashList
             data={ideaListData}
             estimatedItemSize={140}
@@ -259,6 +264,9 @@ export default function IdeasScreen() {
               { paddingBottom: bottomTabBarHeight + spacing.md },
             ]}
             onScroll={onScroll}
+            onScrollBeginDrag={onScrollBeginDrag}
+            onScrollEndDrag={onScrollEndDrag}
+            onMomentumScrollEnd={onMomentumScrollEnd}
             refreshControl={
               <RefreshControl
                 refreshing={isRefreshing}

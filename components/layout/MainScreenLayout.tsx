@@ -1,6 +1,4 @@
 import type { ReactNode } from "react";
-import { useCallback, useState } from "react";
-import { useFocusEffect } from "expo-router";
 import {
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -14,13 +12,20 @@ import { useMinutaTheme } from "../../constants/useMinutaTheme";
 import { CollapsibleSearch } from "./CollapsibleSearch";
 import { FixedHeader } from "./FixedHeader";
 import { StickyChips } from "./StickyChips";
+import { useSearchBarScrollBehavior } from "./useSearchBarScrollBehavior";
 
 type ScrollHandler = (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
+type ScrollGestureHandler = () => void;
 
 interface MainScreenLayoutProps {
   actions?: ReactNode;
   centerHeaderTitle?: boolean;
-  children: (props: { onScroll: ScrollHandler }) => ReactNode;
+  children: (props: {
+    onMomentumScrollEnd: ScrollGestureHandler;
+    onScroll: ScrollHandler;
+    onScrollBeginDrag: ScrollGestureHandler;
+    onScrollEndDrag: ScrollGestureHandler;
+  }) => ReactNode;
   chips?: ReactNode;
   compactHeader?: boolean;
   leadingAction?: ReactNode;
@@ -47,28 +52,15 @@ export function MainScreenLayout({
   title,
 }: MainScreenLayoutProps) {
   const { theme } = useMinutaTheme();
-  const [isSearchCollapsed, setIsSearchCollapsed] = useState(false);
-
-  useFocusEffect(
-    useCallback(() => {
-      setIsSearchCollapsed(false);
-    }, []),
-  );
-
-  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    if (compactHeader) return;
-
-    const y = event.nativeEvent.contentOffset.y;
-
-    if (y > 24 && !isSearchCollapsed) {
-      setIsSearchCollapsed(true);
-      return;
-    }
-
-    if (y < 8 && isSearchCollapsed) {
-      setIsSearchCollapsed(false);
-    }
-  }, [compactHeader, isSearchCollapsed]);
+  const {
+    isCollapsed: isSearchCollapsed,
+    onMomentumScrollEnd,
+    onScroll: handleScroll,
+    onScrollBeginDrag,
+    onScrollEndDrag,
+  } = useSearchBarScrollBehavior({
+    disabled: compactHeader || !searchPlaceholder || !onSearchChange,
+  });
 
   return (
     <SafeAreaView
@@ -94,7 +86,14 @@ export function MainScreenLayout({
         ) : null}
         {!compactHeader ? <StickyChips>{chips}</StickyChips> : null}
       </View>
-      <View style={styles.content}>{children({ onScroll: handleScroll })}</View>
+      <View style={styles.content}>
+        {children({
+          onMomentumScrollEnd,
+          onScroll: handleScroll,
+          onScrollBeginDrag,
+          onScrollEndDrag,
+        })}
+      </View>
     </SafeAreaView>
   );
 }

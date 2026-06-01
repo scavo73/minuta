@@ -16,11 +16,11 @@ export function FolderButton({ onPress }: FolderButtonProps) {
       accessibilityLabel="Abrir carpetas"
       accessibilityRole="button"
       onPress={onPress}
-      style={[styles.button, { backgroundColor: theme.surface }]}
+      style={[styles.button, { backgroundColor: theme.card }]}
     >
       <Ionicons color={theme.text} name="folder-outline" size={22} />
       <View style={[styles.badge, { backgroundColor: theme.primary }]}>
-        <Ionicons color="#FFFFFF" name="add" size={12} />
+        <Ionicons color={theme.primaryText} name="add" size={12} />
       </View>
     </Pressable>
   );

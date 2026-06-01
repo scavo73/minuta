@@ -30,8 +30,8 @@ export function IdeaCard({
       ]}
     >
       <View style={styles.header}>
-        <Ionicons color={theme.mutedText} name="bulb-outline" size={18} />
-        <Text style={[styles.date, { color: theme.mutedText }]}>
+        <Ionicons color={theme.ideaText} name="bulb-outline" size={18} />
+        <Text style={[styles.date, { color: theme.ideaText }]}>
           {idea.updatedAt.toLocaleDateString()}
         </Text>
       </View>
@@ -40,7 +40,7 @@ export function IdeaCard({
         style={[
           styles.title,
           isHome ? styles.homeTitle : null,
-          { color: theme.text },
+          { color: theme.ideaText },
         ]}
       >
         {idea.title}
@@ -49,7 +49,7 @@ export function IdeaCard({
         {tags.map((tag) => (
           <View
             key={tag}
-            style={[styles.chip, { backgroundColor: theme.surface }]}
+            style={[styles.chip, { backgroundColor: theme.chipBackground }]}
           >
             <Text style={[styles.chipText, { color: theme.mutedText }]}>
               {tag}

@@ -30,7 +30,7 @@ export default function TabsLayout() {
 
           backgroundColor: theme.surface,
           borderTopWidth: StyleSheet.hairlineWidth,
-          borderTopColor: "rgba(0,0,0,0.12)",
+          borderTopColor: theme.border,
 
           paddingTop: 8,
           paddingBottom: 8,
@@ -99,7 +99,10 @@ export default function TabsLayout() {
               <Text
                 style={[
                   styles.createTabButton,
-                  { backgroundColor: theme.primary },
+                  {
+                    backgroundColor: theme.primary,
+                    color: theme.primaryText,
+                  },
                 ]}
               >
                 +
@@ -156,7 +159,6 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    color: "#FFFFFF",
     fontSize: 34,
     fontWeight: "700",
     lineHeight: 52,

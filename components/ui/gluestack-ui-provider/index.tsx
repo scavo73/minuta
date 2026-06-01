@@ -17,7 +17,8 @@ export function GluestackUIProvider({
   style?: ViewProps['style'];
 }) {
   const { colorScheme } = useColorScheme();
-  const resolvedScheme = colorScheme === 'dark' ? 'dark' : 'light';
+  const systemScheme = colorScheme === 'dark' ? 'dark' : 'light';
+  const resolvedScheme = mode === 'system' ? systemScheme : mode;
 
   return (
     <View

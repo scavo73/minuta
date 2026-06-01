@@ -224,7 +224,7 @@ function FormRow({ children, label, verticalAlign = "center" }: FormRowProps) {
       style={[
         styles.formRow,
         isCentered ? styles.formRowCentered : null,
-        { borderTopColor: theme.mutedText },
+        { borderTopColor: theme.border },
       ]}
     >
       <View
@@ -345,7 +345,7 @@ function TypeTabs({ collapsed, onSelectKind, selectedKind }: TypeTabsProps) {
         },
       ]}
     >
-      <View style={[styles.tabs, { backgroundColor: theme.surface }]}>
+      <View style={[styles.tabs, { backgroundColor: theme.card }]}>
         {typeTabs.map((option) => {
           const isSelected = selectedKind === option.value;
 
@@ -361,14 +361,14 @@ function TypeTabs({ collapsed, onSelectKind, selectedKind }: TypeTabsProps) {
               ]}
             >
               <Ionicons
-                color={isSelected ? "#FFFFFF" : theme.mutedText}
+                color={isSelected ? theme.primaryText : theme.mutedText}
                 name={option.icon}
                 size={17}
               />
               <Text
                 style={[
                   styles.tabText,
-                  { color: isSelected ? "#FFFFFF" : theme.text },
+                  { color: isSelected ? theme.primaryText : theme.text },
                 ]}
               >
                 {option.label}
@@ -1015,8 +1015,8 @@ export default function NuevaNotaScreen() {
               style={[
                 styles.folderChip,
                 {
-                  backgroundColor: theme.surface,
-                  borderColor: isSelected ? theme.primary : theme.mutedText,
+                  backgroundColor: theme.chipBackground,
+                  borderColor: isSelected ? theme.primary : theme.border,
                   opacity: isSelected ? 1 : 0.72,
                 },
               ]}
@@ -1065,7 +1065,7 @@ export default function NuevaNotaScreen() {
             style={[
               styles.headerButton,
               styles.headerLeading,
-              { backgroundColor: theme.surface },
+              { backgroundColor: theme.card },
             ]}
           >
             <Ionicons
@@ -1094,7 +1094,7 @@ export default function NuevaNotaScreen() {
                 onPress={clearForm}
                 style={[
                   styles.headerButton,
-                  { backgroundColor: theme.surface },
+                  { backgroundColor: theme.card },
                 ]}
               >
                 <Ionicons
@@ -1142,7 +1142,13 @@ export default function NuevaNotaScreen() {
           {kind === "note" ? (
             <Pressable
               onPress={noteForm.imageUri ? undefined : pickImage}
-              style={[styles.imagePicker, { borderColor: theme.mutedText }]}
+              style={[
+                styles.imagePicker,
+                {
+                  backgroundColor: theme.inputBackground,
+                  borderColor: theme.border,
+                },
+              ]}
             >
               {noteForm.imageUri ? (
                 <>
@@ -1156,7 +1162,7 @@ export default function NuevaNotaScreen() {
                       onPress={pickImage}
                       style={[
                         styles.imageActionButton,
-                        { backgroundColor: theme.surface },
+                        { backgroundColor: theme.card },
                       ]}
                     >
                       <Text
@@ -1171,7 +1177,7 @@ export default function NuevaNotaScreen() {
                       }}
                       style={[
                         styles.imageActionButton,
-                        { backgroundColor: theme.surface },
+                        { backgroundColor: theme.card },
                       ]}
                     >
                       <Text
@@ -1223,7 +1229,9 @@ export default function NuevaNotaScreen() {
                   />
                 </FormRow>
                 {errors.title ? (
-                  <Text style={styles.error}>{errors.title}</Text>
+                  <Text style={[styles.error, { color: theme.danger }]}>
+                    {errors.title}
+                  </Text>
                 ) : null}
               </>
             ) : null}
@@ -1234,7 +1242,7 @@ export default function NuevaNotaScreen() {
                 <View
                   style={[
                     styles.contentRow,
-                    { borderTopColor: theme.mutedText },
+                    { borderTopColor: theme.border },
                   ]}
                 >
                   <View style={styles.rowLabelColumn}>
@@ -1263,7 +1271,9 @@ export default function NuevaNotaScreen() {
                   />
                 </View>
                 {errors.content ? (
-                  <Text style={styles.error}>{errors.content}</Text>
+                  <Text style={[styles.error, { color: theme.danger }]}>
+                    {errors.content}
+                  </Text>
                 ) : null}
               </>
             ) : null}
@@ -1274,7 +1284,7 @@ export default function NuevaNotaScreen() {
                 <View
                   style={[
                     styles.contentRow,
-                    { borderTopColor: theme.mutedText },
+                    { borderTopColor: theme.border },
                   ]}
                 >
                   <View style={styles.rowLabelColumn}>
@@ -1303,7 +1313,7 @@ export default function NuevaNotaScreen() {
                         <View
                           style={[
                             styles.pendingCircle,
-                            { borderColor: theme.mutedText },
+                            { borderColor: theme.border },
                           ]}
                         />
                         <TextInput
@@ -1346,7 +1356,9 @@ export default function NuevaNotaScreen() {
                   </View>
                 </View>
                 {errors.text ? (
-                  <Text style={styles.error}>{errors.text}</Text>
+                  <Text style={[styles.error, { color: theme.danger }]}>
+                    {errors.text}
+                  </Text>
                 ) : null}
               </>
             ) : null}
@@ -1368,8 +1380,8 @@ export default function NuevaNotaScreen() {
                             style={[
                               styles.tagChip,
                               {
-                                backgroundColor: theme.surface,
-                                borderColor: theme.mutedText,
+                                backgroundColor: theme.chipBackground,
+                                borderColor: theme.border,
                               },
                             ]}
                           >
@@ -1410,7 +1422,7 @@ export default function NuevaNotaScreen() {
                 <View
                   style={[
                     styles.tagSuggestionsBlock,
-                    { borderTopColor: theme.mutedText },
+                    { borderTopColor: theme.border },
                   ]}
                 >
                   <ManageTagsButton
@@ -1451,7 +1463,9 @@ export default function NuevaNotaScreen() {
                   </View>
                 </FormRow>
                 {errors.color ? (
-                  <Text style={styles.error}>{errors.color}</Text>
+                  <Text style={[styles.error, { color: theme.danger }]}>
+                    {errors.color}
+                  </Text>
                 ) : null}
               </>
             ) : null}
@@ -1746,7 +1760,6 @@ const styles = StyleSheet.create({
     width: 28,
   },
   error: {
-    color: "#DC2626",
     fontSize: typography.small,
     paddingTop: spacing.xs,
   },

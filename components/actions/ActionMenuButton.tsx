@@ -29,12 +29,17 @@ export function ActionMenuButton({
       <Pressable
         accessibilityLabel="Abrir acciones"
         onPress={onOpen}
-        style={[styles.trigger, { backgroundColor: theme.surface }]}
+        style={[
+          styles.trigger,
+          { backgroundColor: theme.card, borderColor: theme.border },
+        ]}
       >
         <Ionicons color={theme.text} name="ellipsis-horizontal" size={20} />
         {badgeCount > 0 ? (
           <View style={[styles.badge, { backgroundColor: theme.primary }]}>
-            <Text style={styles.badgeText}>{badgeCount}</Text>
+            <Text style={[styles.badgeText, { color: theme.primaryText }]}>
+              {badgeCount}
+            </Text>
           </View>
         ) : null}
       </Pressable>
@@ -46,7 +51,15 @@ export function ActionMenuButton({
         visible={isOpen}
       >
         <Pressable onPress={onClose} style={styles.backdrop}>
-          <View style={[styles.menu, { backgroundColor: theme.surface }]}>
+          <View
+            style={[
+              styles.menu,
+              {
+                backgroundColor: theme.modalBackground,
+                borderColor: theme.border,
+              },
+            ]}
+          >
             {items.map((item) => (
               <Pressable
                 key={item.action}
@@ -65,7 +78,7 @@ export function ActionMenuButton({
                 <Text
                   style={[
                     styles.menuText,
-                    { color: item.destructive ? "#DC2626" : theme.text },
+                    { color: item.destructive ? theme.danger : theme.text },
                     item.disabled ? { color: theme.mutedText } : null,
                   ]}
                 >
@@ -84,6 +97,7 @@ const styles = StyleSheet.create({
   trigger: {
     alignItems: "center",
     borderRadius: radius.md,
+    borderWidth: 1,
     height: 40,
     justifyContent: "center",
     width: 40,
@@ -105,7 +119,6 @@ const styles = StyleSheet.create({
     top: -5,
   },
   badgeText: {
-    color: "#FFFFFF",
     fontSize: 11,
     fontWeight: "800",
     lineHeight: 13,
@@ -113,6 +126,7 @@ const styles = StyleSheet.create({
   menu: {
     alignSelf: "flex-end",
     borderRadius: radius.md,
+    borderWidth: 1,
     elevation: 8,
     minWidth: 220,
     overflow: "hidden",

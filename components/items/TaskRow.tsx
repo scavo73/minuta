@@ -33,7 +33,6 @@ interface TaskRowProps {
 }
 
 const deleteThreshold = 88;
-const deleteColor = "#EF4444";
 const archiveColor = "#0EA5E9";
 
 export function TaskRow({
@@ -205,7 +204,10 @@ export function TaskRow({
           style={[styles.archiveBackground, { backgroundColor: archiveColor }]}
         />
         <View
-          style={[styles.deleteBackground, { backgroundColor: deleteColor }]}
+          style={[
+            styles.deleteBackground,
+            { backgroundColor: theme.danger },
+          ]}
         />
         <Animated.View
           style={[
@@ -238,7 +240,7 @@ export function TaskRow({
         style={[
           styles.taskRow,
           {
-            backgroundColor: theme.surface,
+            backgroundColor: theme.card,
             transform: [{ translateX }],
           },
         ]}
@@ -249,11 +251,15 @@ export function TaskRow({
             styles.checkbox,
             {
               backgroundColor: task.isCompleted ? theme.primary : "transparent",
-              borderColor: task.isCompleted ? theme.primary : theme.mutedText,
+              borderColor: task.isCompleted ? theme.primary : theme.border,
             },
           ]}
         >
-          {task.isCompleted ? <Text style={styles.checkmark}>✓</Text> : null}
+          {task.isCompleted ? (
+            <Text style={[styles.checkmark, { color: theme.primaryText }]}>
+              ✓
+            </Text>
+          ) : null}
         </Pressable>
 
         {isEditing ? (
@@ -262,6 +268,7 @@ export function TaskRow({
             multiline
             onChangeText={onChangeEditText}
             onFocus={onEditingFocus}
+            placeholderTextColor={theme.mutedText}
             style={[styles.textInput, styles.taskText, taskTextStyle]}
             value={editText}
           />
@@ -328,7 +335,6 @@ const styles = StyleSheet.create({
     width: 26,
   },
   checkmark: {
-    color: "#FFFFFF",
     fontSize: typography.small,
     fontWeight: "700",
   },

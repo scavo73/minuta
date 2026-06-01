@@ -243,7 +243,7 @@ export default function HomeScreen() {
           <View
             style={[styles.accountAvatar, { backgroundColor: theme.primary }]}
           >
-            <Ionicons color="#FFFFFF" name="person" size={18} />
+            <Ionicons color={theme.primaryText} name="person" size={18} />
           </View>
         </Pressable>
       }
@@ -264,7 +264,12 @@ export default function HomeScreen() {
       onSearchChange={setSearchQuery}
       onSearchFocus={() => setIsSearchFocused(true)}
     >
-      {({ onScroll }) => (
+      {({
+        onMomentumScrollEnd,
+        onScroll,
+        onScrollBeginDrag,
+        onScrollEndDrag,
+      }) => (
         <ScrollView
           contentContainerStyle={[
             styles.content,
@@ -272,6 +277,9 @@ export default function HomeScreen() {
           ]}
           keyboardShouldPersistTaps="handled"
           onScroll={onScroll}
+          onScrollBeginDrag={onScrollBeginDrag}
+          onScrollEndDrag={onScrollEndDrag}
+          onMomentumScrollEnd={onMomentumScrollEnd}
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}

@@ -57,7 +57,8 @@ export function CollapsibleSearch({
         style={[
           styles.input,
           {
-            backgroundColor: theme.surface,
+            backgroundColor: theme.inputBackground,
+            borderColor: theme.border,
             color: theme.text,
           },
         ]}
@@ -70,6 +71,7 @@ export function CollapsibleSearch({
 const styles = StyleSheet.create({
   input: {
     borderRadius: 16,
+    borderWidth: 1,
     fontSize: typography.body,
     height: SEARCH_HEIGHT,
     paddingHorizontal: spacing.md,

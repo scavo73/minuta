@@ -86,7 +86,7 @@ function FormRow({ children, label, verticalAlign = "center" }: FormRowProps) {
       style={[
         styles.formRow,
         isCentered ? styles.formRowCentered : null,
-        { borderTopColor: theme.mutedText },
+        { borderTopColor: theme.border },
       ]}
     >
       <View
@@ -279,8 +279,8 @@ export function EditItemForm({
               style={[
                 styles.folderChip,
                 {
-                  backgroundColor: theme.surface,
-                  borderColor: isSelected ? theme.primary : theme.mutedText,
+                  backgroundColor: theme.chipBackground,
+                  borderColor: isSelected ? theme.primary : theme.border,
                   opacity: isSelected ? 1 : 0.72,
                 },
               ]}
@@ -319,7 +319,7 @@ export function EditItemForm({
         <Pressable
           accessibilityLabel="Volver"
           onPress={onCancel}
-          style={[styles.headerButton, { backgroundColor: theme.surface }]}
+          style={[styles.headerButton, { backgroundColor: theme.card }]}
         >
           <Ionicons color={theme.text} name="arrow-back" size={22} />
         </Pressable>
@@ -349,7 +349,13 @@ export function EditItemForm({
         {kind === "note" ? (
           <Pressable
             onPress={imageUri ? undefined : pickImage}
-            style={[styles.imagePicker, { borderColor: theme.mutedText }]}
+            style={[
+              styles.imagePicker,
+              {
+                backgroundColor: theme.inputBackground,
+                borderColor: theme.border,
+              },
+            ]}
           >
             {imageUri ? (
               <>
@@ -363,7 +369,7 @@ export function EditItemForm({
                     onPress={pickImage}
                     style={[
                       styles.imageActionButton,
-                      { backgroundColor: theme.surface },
+                      { backgroundColor: theme.card },
                     ]}
                   >
                     <Text style={[styles.imageActionText, { color: theme.text }]}>
@@ -374,7 +380,7 @@ export function EditItemForm({
                     onPress={() => setImageUri(undefined)}
                     style={[
                       styles.imageActionButton,
-                      { backgroundColor: theme.surface },
+                      { backgroundColor: theme.card },
                     ]}
                   >
                     <Text style={[styles.imageActionText, { color: theme.text }]}>
@@ -412,12 +418,16 @@ export function EditItemForm({
               value={title}
             />
           </FormRow>
-          {errors.title ? <Text style={styles.error}>{errors.title}</Text> : null}
+          {errors.title ? (
+            <Text style={[styles.error, { color: theme.danger }]}>
+              {errors.title}
+            </Text>
+          ) : null}
 
           {kind === "note" ? (
             <>
               <View
-                style={[styles.contentRow, { borderTopColor: theme.mutedText }]}
+                style={[styles.contentRow, { borderTopColor: theme.border }]}
               >
                 <View style={styles.rowLabelColumn}>
                   <Text style={[styles.rowLabel, { color: theme.mutedText }]}>
@@ -442,7 +452,9 @@ export function EditItemForm({
                 />
               </View>
               {errors.content ? (
-                <Text style={styles.error}>{errors.content}</Text>
+                <Text style={[styles.error, { color: theme.danger }]}>
+                  {errors.content}
+                </Text>
               ) : null}
             </>
           ) : null}
@@ -460,8 +472,8 @@ export function EditItemForm({
                       style={[
                         styles.tagChip,
                         {
-                          backgroundColor: theme.surface,
-                          borderColor: theme.mutedText,
+                          backgroundColor: theme.chipBackground,
+                          borderColor: theme.border,
                         },
                       ]}
                     >
@@ -490,7 +502,7 @@ export function EditItemForm({
               <View
                 style={[
                   styles.tagSuggestionsBlock,
-                  { borderTopColor: theme.mutedText },
+                  { borderTopColor: theme.border },
                 ]}
               >
                 <ManageTagsButton
@@ -729,7 +741,6 @@ const styles = StyleSheet.create({
     width: 28,
   },
   error: {
-    color: "#DC2626",
     fontSize: typography.small,
     paddingTop: spacing.xs,
   },

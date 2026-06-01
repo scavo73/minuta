@@ -49,8 +49,8 @@ export function TagSuggestions({
               styles.chip,
               variant === "large" ? styles.largeChip : null,
               {
-                backgroundColor: theme.surface,
-                borderColor: isSelected ? theme.primary : theme.mutedText,
+                backgroundColor: theme.chipBackground,
+                borderColor: isSelected ? theme.primary : theme.border,
                 opacity: isSelected ? 1 : 0.68,
               },
             ]}

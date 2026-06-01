@@ -111,7 +111,7 @@ export default function SignUpScreen() {
       </View>
 
       {error ? (
-        <Text style={[styles.errorText, { color: "#DC2626" }]}>{error}</Text>
+        <Text style={[styles.errorText, { color: theme.danger }]}>{error}</Text>
       ) : null}
 
       <AuthPrimaryButton
