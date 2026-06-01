@@ -44,7 +44,12 @@ export function FixedHeader({
 
   return (
     <View style={styles.header}>
-      <Text style={[styles.title, { color: theme.text }]}>{title}</Text>
+      <View style={styles.titleBlock}>
+        {leadingAction ? (
+          <View style={styles.inlineLeading}>{leadingAction}</View>
+        ) : null}
+        <Text style={[styles.title, { color: theme.text }]}>{title}</Text>
+      </View>
       {actions ? (
         <View style={styles.actions}>{actions}</View>
       ) : (
@@ -84,6 +89,9 @@ const styles = StyleSheet.create({
     left: 0,
     position: "absolute",
   },
+  inlineLeading: {
+    flexShrink: 0,
+  },
   trailing: {
     position: "absolute",
     right: 0,
@@ -91,5 +99,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.title,
     fontWeight: "700",
+  },
+  titleBlock: {
+    alignItems: "center",
+    flex: 1,
+    flexDirection: "row",
+    gap: spacing.sm,
+    minWidth: 0,
   },
 });

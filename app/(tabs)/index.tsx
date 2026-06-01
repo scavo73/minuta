@@ -19,6 +19,10 @@ import { IdeaCard } from "../../components/items/IdeaCard";
 import { NoteCard } from "../../components/items/NoteCard";
 import { EmptyState } from "../../components/layout/EmptyState";
 import { MainScreenLayout } from "../../components/layout/MainScreenLayout";
+import {
+  getScrollPositionKey,
+  usePersistedScrollPosition,
+} from "../../components/layout/usePersistedScrollPosition";
 import { spacing } from "../../constants/theme";
 import { useMinutaTheme } from "../../constants/useMinutaTheme";
 import {
@@ -105,6 +109,7 @@ function renderMasonryItem(item: HomeMasonryItem, onPress: () => void) {
 export default function HomeScreen() {
   const { theme } = useMinutaTheme();
   const bottomTabBarHeight = useBottomTabBarHeight();
+  const scrollRef = useRef<ScrollView>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -161,6 +166,11 @@ export default function HomeScreen() {
   });
 
   const { left, right } = splitIntoMasonryColumns(items);
+  const scrollKey = getScrollPositionKey("home", selectedFolderId);
+  const { saveScrollPosition } = usePersistedScrollPosition({
+    listRef: scrollRef,
+    scrollKey,
+  });
 
   const shouldHideWidget = isSearchFocused || searchQuery.trim().length > 0;
 
@@ -266,17 +276,25 @@ export default function HomeScreen() {
     >
       {({
         onMomentumScrollEnd,
+        onContentSizeChange,
+        onLayout,
         onScroll,
         onScrollBeginDrag,
         onScrollEndDrag,
       }) => (
         <ScrollView
+          ref={scrollRef}
           contentContainerStyle={[
             styles.content,
             { paddingBottom: bottomTabBarHeight + spacing.md },
           ]}
           keyboardShouldPersistTaps="handled"
-          onScroll={onScroll}
+          onContentSizeChange={onContentSizeChange}
+          onLayout={onLayout}
+          onScroll={(event) => {
+            saveScrollPosition(event);
+            onScroll(event);
+          }}
           onScrollBeginDrag={onScrollBeginDrag}
           onScrollEndDrag={onScrollEndDrag}
           onMomentumScrollEnd={onMomentumScrollEnd}

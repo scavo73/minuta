@@ -26,6 +26,10 @@ import { ArchivedRow } from "../../components/items/ArchivedRow";
 import { TaskRow } from "../../components/items/TaskRow";
 import { EmptyState } from "../../components/layout/EmptyState";
 import { MainScreenLayout } from "../../components/layout/MainScreenLayout";
+import {
+  getScrollPositionKey,
+  usePersistedScrollPosition,
+} from "../../components/layout/usePersistedScrollPosition";
 import { spacing } from "../../constants/theme";
 import {
   ALL_FOLDERS_ID,
@@ -163,6 +167,12 @@ export default function ChecklistsScreen() {
         (item) => item.type === "task" && item.task.id === editingTaskId,
       )
     : taskListData;
+  const scrollKey = getScrollPositionKey("tasks", selectedFolderId);
+  const { saveScrollPosition } = usePersistedScrollPosition({
+    enabled: editingTaskId == null,
+    listRef,
+    scrollKey,
+  });
 
   const ensureEditingTaskVisible = useCallback(() => {
     if (!editingTaskId) return;
@@ -221,9 +231,10 @@ export default function ChecklistsScreen() {
       onLayoutScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void,
     ) => {
       currentScrollY.current = event.nativeEvent.contentOffset.y;
+      saveScrollPosition(event);
       onLayoutScroll(event);
     },
-    [],
+    [saveScrollPosition],
   );
 
   useEffect(() => {
@@ -435,6 +446,8 @@ export default function ChecklistsScreen() {
       >
         {({
           onMomentumScrollEnd,
+          onContentSizeChange,
+          onLayout,
           onScroll,
           onScrollBeginDrag,
           onScrollEndDrag,
@@ -445,8 +458,11 @@ export default function ChecklistsScreen() {
             estimatedItemSize={160}
             keyboardShouldPersistTaps="handled"
             keyExtractor={(item) => item.id}
-            maintainVisibleContentPosition={{ disabled: true }}
-            onLayout={(event) => setListHeight(event.nativeEvent.layout.height)}
+            onContentSizeChange={onContentSizeChange}
+            onLayout={(event) => {
+              setListHeight(event.nativeEvent.layout.height);
+              onLayout(event);
+            }}
             ListHeaderComponent={
               editingTaskId ? (
                 <View style={styles.listHeader}>

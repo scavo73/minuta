@@ -1,7 +1,7 @@
-import { FlashList } from "@shopify/flash-list";
+import { FlashList, type FlashListRef } from "@shopify/flash-list";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { RefreshControl, StyleSheet, View } from "react-native";
 
 import { showDeleteConfirm } from "../../components/actions/DeleteConfirmDialog";
@@ -16,6 +16,10 @@ import { ArchivedRow } from "../../components/items/ArchivedRow";
 import { IdeaCard } from "../../components/items/IdeaCard";
 import { EmptyState } from "../../components/layout/EmptyState";
 import { MainScreenLayout } from "../../components/layout/MainScreenLayout";
+import {
+  getScrollPositionKey,
+  usePersistedScrollPosition,
+} from "../../components/layout/usePersistedScrollPosition";
 import { spacing } from "../../constants/theme";
 import {
   ALL_FOLDERS_ID,
@@ -48,6 +52,7 @@ function normalizeSearch(value: string) {
 
 export default function IdeasScreen() {
   const bottomTabBarHeight = useBottomTabBarHeight();
+  const listRef = useRef<FlashListRef<IdeaListItem>>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isRowSwiping, setIsRowSwiping] = useState(false);
@@ -136,6 +141,11 @@ export default function IdeasScreen() {
           type: "idea",
           idea,
         }));
+  const scrollKey = getScrollPositionKey("ideas", selectedFolderId);
+  const { saveScrollPosition } = usePersistedScrollPosition({
+    listRef,
+    scrollKey,
+  });
 
   useEffect(() => {
     if (
@@ -238,16 +248,18 @@ export default function IdeasScreen() {
       >
         {({
           onMomentumScrollEnd,
+          onContentSizeChange,
+          onLayout,
           onScroll,
           onScrollBeginDrag,
           onScrollEndDrag,
         }) => (
           <FlashList
+            ref={listRef}
             data={ideaListData}
             estimatedItemSize={140}
             keyExtractor={(item) => item.id}
             keyboardShouldPersistTaps="handled"
-            maintainVisibleContentPosition={{ disabled: true }}
             ListHeaderComponent={
               <View style={styles.listHeader}>
                 {archivedIdeas.length > 0 ? (
@@ -263,7 +275,12 @@ export default function IdeasScreen() {
               styles.content,
               { paddingBottom: bottomTabBarHeight + spacing.md },
             ]}
-            onScroll={onScroll}
+            onContentSizeChange={onContentSizeChange}
+            onLayout={onLayout}
+            onScroll={(event) => {
+              saveScrollPosition(event);
+              onScroll(event);
+            }}
             onScrollBeginDrag={onScrollBeginDrag}
             onScrollEndDrag={onScrollEndDrag}
             onMomentumScrollEnd={onMomentumScrollEnd}
