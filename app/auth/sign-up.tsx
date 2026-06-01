@@ -11,13 +11,12 @@ import {
 import { spacing, typography } from "../../constants/theme";
 import { useMinutaTheme } from "../../constants/useMinutaTheme";
 import { login, register, type AuthResponse } from "../../lib/api";
-import { saveToken } from "../../lib/authStorage";
+import {
+  getAuthToken,
+  saveSessionFromAuthResponse,
+} from "../../lib/authSession";
 import { useFoldersStore } from "../../store/foldersStore";
 import { useNotesStore } from "../../store/notesStore";
-
-function getAuthToken(response: AuthResponse) {
-  return response.token ?? response.accessToken ?? null;
-}
 
 export default function SignUpScreen() {
   const { theme } = useMinutaTheme();
@@ -58,17 +57,19 @@ export default function SignUpScreen() {
 
       const registerResponse = await register(trimmedEmail, password);
       let token = getAuthToken(registerResponse);
+      let sessionResponse: AuthResponse = registerResponse;
 
       if (!token) {
         const loginResponse = await login(trimmedEmail, password);
         token = getAuthToken(loginResponse);
+        sessionResponse = loginResponse;
       }
 
       if (!token) {
         throw new Error("No se recibió token de sesión.");
       }
 
-      await saveToken(token);
+      await saveSessionFromAuthResponse(token, sessionResponse, trimmedEmail);
       await Promise.all([fetchItems(), fetchFolders()]);
       router.replace("/");
     } catch (nextError) {

@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
 import {
   Alert,
   Pressable,
@@ -23,7 +24,10 @@ import {
   type ThemePreference,
 } from "../constants/theme";
 import { useMinutaTheme } from "../constants/useMinutaTheme";
-import { deleteToken } from "../lib/authStorage";
+import {
+  clearAuthSession,
+  getToken,
+} from "../lib/authStorage";
 import { useFoldersStore } from "../store/foldersStore";
 import { useNotesStore } from "../store/notesStore";
 
@@ -189,8 +193,25 @@ function AccountRow({
 export default function AccountScreen() {
   const { theme, themePreference, setThemePreference } = useMinutaTheme();
   const insets = useSafeAreaInsets();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isSessionLoaded, setIsSessionLoaded] = useState(false);
   const clearFolders = useFoldersStore((state) => state.clearFolders);
   const clearItems = useNotesStore((state) => state.clearItems);
+
+  const loadSession = useCallback(async () => {
+    setIsSessionLoaded(false);
+
+    const token = await getToken();
+
+    setIsLoggedIn(Boolean(token));
+    setIsSessionLoaded(true);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadSession();
+    }, [loadSession]),
+  );
 
   const handleLogout = () => {
     Alert.alert(
@@ -205,10 +226,12 @@ export default function AccountScreen() {
           text: "Cerrar sesión",
           style: "destructive",
           onPress: async () => {
-            await deleteToken();
+            await clearAuthSession();
             clearItems();
             clearFolders();
             await useNotesStore.persist.clearStorage();
+            setIsLoggedIn(false);
+            setIsSessionLoaded(true);
             router.replace("/auth/sign-in");
           },
         },
@@ -240,42 +263,55 @@ export default function AccountScreen() {
           { paddingBottom: insets.bottom + spacing.lg },
         ]}
       >
-        <View style={[styles.userCard, { backgroundColor: theme.card }]}>
-          <View style={[styles.avatar, { backgroundColor: theme.primary }]}>
-            <Ionicons color={theme.primaryText} name="person" size={38} />
-          </View>
-          <View style={styles.userCopy}>
-            <Text style={[styles.userTitle, { color: theme.text }]}>
-              Accede a tu cuenta
-            </Text>
-            <Text style={[styles.userText, { color: theme.mutedText }]}>
-              Sincroniza tus notas, tareas e ideas de forma segura.
-            </Text>
-          </View>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => router.push("/auth/sign-in")}
-            style={[styles.primaryButton, { backgroundColor: theme.primary }]}
-          >
-            <Text
-              style={[styles.primaryButtonText, { color: theme.primaryText }]}
+        {isSessionLoaded && !isLoggedIn ? (
+          <View style={[styles.userCard, { backgroundColor: theme.card }]}>
+            <View style={[styles.avatar, { backgroundColor: theme.primary }]}>
+              <Ionicons color={theme.primaryText} name="person" size={38} />
+            </View>
+            <View style={styles.userCopy}>
+              <Text style={[styles.userTitle, { color: theme.text }]}>
+                Accede a tu cuenta
+              </Text>
+              <Text style={[styles.userText, { color: theme.mutedText }]}>
+                Sincroniza tus notas, tareas e ideas de forma segura.
+              </Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push("/auth/sign-in")}
+              style={[styles.primaryButton, { backgroundColor: theme.primary }]}
             >
-              Iniciar sesión
-            </Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => router.push("/auth/sign-up")}
-            style={styles.secondaryAction}
-          >
-            <Text style={[styles.secondaryActionText, { color: theme.text }]}>
-              Crear cuenta
-            </Text>
-          </Pressable>
-        </View>
+              <Text
+                style={[styles.primaryButtonText, { color: theme.primaryText }]}
+              >
+                Iniciar sesión
+              </Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push("/auth/sign-up")}
+              style={styles.secondaryAction}
+            >
+              <Text style={[styles.secondaryActionText, { color: theme.text }]}>
+                Crear cuenta
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
 
         <AccountSection title="Cuenta">
-          <AccountRow icon="person-outline" label="Perfil" />
+          <AccountRow
+            icon="person-outline"
+            label="Perfil"
+            subtitle={
+              isSessionLoaded && !isLoggedIn
+                ? "Inicia sesión para ver tus datos."
+                : undefined
+            }
+            onPress={() =>
+              router.push(isLoggedIn ? "/profile" : "/auth/sign-in")
+            }
+          />
           <AccountRow icon="options-outline" label="Preferencias" />
           <AccountRow icon="notifications-outline" label="Notificaciones" />
         </AccountSection>
@@ -319,15 +355,17 @@ export default function AccountScreen() {
           </View>
         </AccountSection>
 
-        <AccountSection title="Sesión">
-          <AccountRow
-            destructive
-            icon="log-out-outline"
-            label="Cerrar sesión"
-            subtitle="Borra el token guardado en este dispositivo."
-            onPress={handleLogout}
-          />
-        </AccountSection>
+        {isSessionLoaded && isLoggedIn ? (
+          <AccountSection title="Sesión">
+            <AccountRow
+              destructive
+              icon="log-out-outline"
+              label="Cerrar sesión"
+              subtitle="Borra el token guardado en este dispositivo."
+              onPress={handleLogout}
+            />
+          </AccountSection>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );

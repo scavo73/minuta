@@ -48,6 +48,7 @@ function RootLayoutContent() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="account" />
+        <Stack.Screen name="profile" />
         <Stack.Screen name="auth/sign-in" />
         <Stack.Screen name="auth/sign-up" />
         <Stack.Screen name="auth/forgot-password" />

@@ -11,14 +11,13 @@ import {
 } from "../../components/auth/AuthScaffold";
 import { spacing, typography } from "../../constants/theme";
 import { useMinutaTheme } from "../../constants/useMinutaTheme";
-import { login, type AuthResponse } from "../../lib/api";
-import { saveToken } from "../../lib/authStorage";
+import { login } from "../../lib/api";
+import {
+  getAuthToken,
+  saveSessionFromAuthResponse,
+} from "../../lib/authSession";
 import { useFoldersStore } from "../../store/foldersStore";
 import { useNotesStore } from "../../store/notesStore";
-
-function getAuthToken(response: AuthResponse) {
-  return response.token ?? response.accessToken ?? null;
-}
 
 export default function SignInScreen() {
   const { theme } = useMinutaTheme();
@@ -53,7 +52,7 @@ export default function SignInScreen() {
         throw new Error("No se recibió token de sesión.");
       }
 
-      await saveToken(token);
+      await saveSessionFromAuthResponse(token, response, trimmedEmail);
       await Promise.all([fetchItems(), fetchFolders()]);
       router.replace("/");
     } catch (nextError) {

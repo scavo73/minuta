@@ -9,7 +9,10 @@ export type AuthResponse = {
   token?: string;
   accessToken?: string;
   user?: {
+    created_at?: string;
+    createdAt?: string;
     id?: string;
+    name?: string;
     email?: string;
   };
 };
