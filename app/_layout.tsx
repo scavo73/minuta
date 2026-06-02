@@ -6,7 +6,6 @@ import { useEffect } from "react";
 
 import { GluestackUIProvider } from "../components/ui/gluestack-ui-provider";
 import { MinutaThemeProvider, useMinutaTheme } from "../constants/useMinutaTheme";
-import { getToken } from "../lib/authStorage";
 import { useFirebaseAuthStore } from "../store/firebaseAuthStore";
 import { useFoldersStore } from "../store/foldersStore";
 import { useNotesStore } from "../store/notesStore";
@@ -25,6 +24,7 @@ function RootLayoutContent() {
   const hydrateFirebaseAuth = useFirebaseAuthStore(
     (state) => state.hydrateFirebaseAuth,
   );
+  const currentUser = useFirebaseAuthStore((state) => state.currentUser);
   const { colorScheme, isDark } = useMinutaTheme();
 
   useEffect(() => {
@@ -32,23 +32,11 @@ function RootLayoutContent() {
   }, [hydrateFirebaseAuth]);
 
   useEffect(() => {
-    let isMounted = true;
+    if (!currentUser) return;
 
-    async function loadInitialData() {
-      const token = await getToken();
-
-      if (!isMounted || !token) return;
-
-      fetchFolders();
-      fetchItems();
-    }
-
-    void loadInitialData();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [fetchFolders, fetchItems]);
+    fetchFolders();
+    fetchItems();
+  }, [currentUser, fetchFolders, fetchItems]);
 
   return (
     <GluestackUIProvider mode={colorScheme}>

@@ -1,4 +1,4 @@
-import { getToken } from "./authStorage";
+import { firebaseAuth } from "./firebase";
 
 const BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ?? "https://minuta-api.vercel.app/api";
@@ -103,63 +103,76 @@ function getResourceForType(type: MinutaItemType) {
   return "notes";
 }
 
-function getErrorMessage(path: string, data: unknown) {
-  if (data && typeof data === "object") {
-    const record = data as Record<string, unknown>;
-    const message = record.message ?? record.error;
-
-    if (typeof message === "string" && message.trim().length > 0) {
-      return message;
-    }
-  }
-
-  return `Error en ${path}`;
-}
-
-async function withAuthHeader(init?: RequestInit): Promise<RequestInit> {
-  const token = await getToken();
+async function withAuthHeader(
+  init?: RequestInit,
+): Promise<{ requestInit: RequestInit; token: string | null }> {
+  const user = firebaseAuth.currentUser;
+  const token = user ? await user.getIdToken() : null;
   const headers = {
     ...(init?.headers as Record<string, string> | undefined),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 
   return {
-    ...init,
-    headers,
+    requestInit: {
+      ...init,
+      headers,
+    },
+    token,
   };
 }
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, await withAuthHeader(init));
+  const { requestInit, token } = await withAuthHeader(init);
+
+  console.log("[API REQUEST]", {
+    path,
+    hasFirebaseUser: Boolean(firebaseAuth.currentUser),
+    uid: firebaseAuth.currentUser?.uid ?? null,
+    hasToken: Boolean(token),
+  });
+
+  const res = await fetch(`${BASE_URL}${path}`, requestInit);
+
+  console.log("[API RESPONSE]", {
+    path,
+    status: res.status,
+    ok: res.ok,
+  });
 
   if (!res.ok) {
-    let errorBody: unknown = null;
+    const errorText = await res.text();
 
-    try {
-      errorBody = await res.json();
-    } catch {
-      errorBody = null;
-    }
-
-    throw new Error(getErrorMessage(path, errorBody));
+    console.log("[API ERROR BODY]", errorText);
+    throw new Error(`API ${res.status}: ${errorText}`);
   }
 
   return res.json();
 }
 
 async function requestVoid(path: string, init?: RequestInit): Promise<void> {
-  const res = await fetch(`${BASE_URL}${path}`, await withAuthHeader(init));
+  const { requestInit, token } = await withAuthHeader(init);
+
+  console.log("[API REQUEST]", {
+    path,
+    hasFirebaseUser: Boolean(firebaseAuth.currentUser),
+    uid: firebaseAuth.currentUser?.uid ?? null,
+    hasToken: Boolean(token),
+  });
+
+  const res = await fetch(`${BASE_URL}${path}`, requestInit);
+
+  console.log("[API RESPONSE]", {
+    path,
+    status: res.status,
+    ok: res.ok,
+  });
 
   if (!res.ok) {
-    let errorBody: unknown = null;
+    const errorText = await res.text();
 
-    try {
-      errorBody = await res.json();
-    } catch {
-      errorBody = null;
-    }
-
-    throw new Error(getErrorMessage(path, errorBody));
+    console.log("[API ERROR BODY]", errorText);
+    throw new Error(`API ${res.status}: ${errorText}`);
   }
 }
 
@@ -259,11 +272,14 @@ export async function getArchives(): Promise<ArchivesResponse> {
 export async function createItem(data: CreateItemInput): Promise<MinutaItem> {
   const resource = getResourceForType(data.type);
   const payload = withoutType(data);
-
-  return requestJson(
+  const createdItem = await requestJson<MinutaItem>(
     `/${resource}`,
     jsonInit("POST", withFolderAliases(payload)),
   );
+
+  console.log("[CREATE RESULT]", createdItem);
+
+  return createdItem;
 }
 
 export async function updateItem(

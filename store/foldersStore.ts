@@ -1,6 +1,5 @@
 import { create } from "zustand";
 
-import { getToken } from "../lib/authStorage";
 import {
   createFolder as createRemoteFolder,
   deleteFolder as deleteRemoteFolder,
@@ -10,6 +9,7 @@ import {
   updateFolder as updateRemoteFolder,
   type RemoteFolder,
 } from "../lib/api";
+import { firebaseAuth } from "../lib/firebase";
 
 export type FolderItemCounts = {
   tasks: number;
@@ -165,9 +165,7 @@ export const useFoldersStore = create<FoldersStore>((set, get) => ({
   },
   fetchFolders: async () => {
     try {
-      const token = await getToken();
-
-      if (!token) {
+      if (!firebaseAuth.currentUser) {
         get().clearFolders();
         return;
       }
@@ -211,9 +209,7 @@ export const useFoldersStore = create<FoldersStore>((set, get) => ({
   },
   fetchArchivedFolders: async () => {
     try {
-      const token = await getToken();
-
-      if (!token) {
+      if (!firebaseAuth.currentUser) {
         get().clearFolders();
         return;
       }

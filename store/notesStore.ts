@@ -4,7 +4,6 @@ import { createJSONStorage, persist } from "zustand/middleware";
 
 import type { AnyNote, IdeaNote, Note, Task } from "../types";
 
-import { getToken } from "../lib/authStorage";
 import {
   deleteItem as deleteRemoteItem,
   getArchives,
@@ -13,6 +12,7 @@ import {
   updateItem as updateRemoteItem,
   type MinutaItem,
 } from "../lib/api";
+import { firebaseAuth } from "../lib/firebase";
 
 interface NotesStore {
   notes: Note[];
@@ -192,9 +192,7 @@ export const useNotesStore = create<NotesStore>()(
 
       fetchItems: async () => {
         try {
-          const token = await getToken();
-
-          if (!token) {
+          if (!firebaseAuth.currentUser) {
             get().clearItems();
             return;
           }
@@ -215,6 +213,13 @@ export const useNotesStore = create<NotesStore>()(
           const activeTasks = items
             .filter((item) => item.type === "checklist")
             .map((item) => mapRemoteChecklistToLocal(item, false));
+
+          console.log("[FETCH ITEMS COUNTS]", {
+            notes: activeNotes.length,
+            tasks: activeTasks.length,
+            ideas: activeIdeas.length,
+          });
+
           const activeNoteIds = new Set(activeNotes.map((note) => note.id));
           const activeIdeaIds = new Set(activeIdeas.map((idea) => idea.id));
           const activeTaskIds = new Set(activeTasks.map((task) => task.id));
@@ -255,9 +260,7 @@ export const useNotesStore = create<NotesStore>()(
 
       fetchArchivedItems: async () => {
         try {
-          const token = await getToken();
-
-          if (!token) {
+          if (!firebaseAuth.currentUser) {
             get().clearItems();
             return;
           }

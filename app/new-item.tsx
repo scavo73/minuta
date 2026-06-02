@@ -934,9 +934,12 @@ export default function NuevaNotaScreen() {
 
       await fetchItems();
       router.back();
-    } catch {
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+
       setErrors({
-        title: "No se pudo guardar. Revisa la conexión con la API.",
+        title: errorMessage,
       });
     } finally {
       setIsSubmitting(false);
