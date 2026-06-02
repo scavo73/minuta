@@ -3,6 +3,7 @@ import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import {
   Alert,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -24,14 +25,17 @@ import {
   type ThemePreference,
 } from "../constants/theme";
 import { useMinutaTheme } from "../constants/useMinutaTheme";
-import {
-  clearAuthSession,
-  getToken,
-} from "../lib/authStorage";
+import { useFirebaseAuthStore } from "../store/firebaseAuthStore";
 import { useFoldersStore } from "../store/foldersStore";
 import { useNotesStore } from "../store/notesStore";
 
 type AccountIconName = React.ComponentProps<typeof Ionicons>["name"];
+
+function getUserInitial(name?: string, email?: string | null) {
+  const source = name?.trim() || email?.trim() || "?";
+
+  return source.charAt(0).toUpperCase();
+}
 
 interface AccountSectionProps {
   children: React.ReactNode;
@@ -193,19 +197,20 @@ function AccountRow({
 export default function AccountScreen() {
   const { theme, themePreference, setThemePreference } = useMinutaTheme();
   const insets = useSafeAreaInsets();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isSessionLoaded, setIsSessionLoaded] = useState(false);
+  const currentUser = useFirebaseAuthStore((state) => state.currentUser);
+  const hydrateFirebaseAuth = useFirebaseAuthStore(
+    (state) => state.hydrateFirebaseAuth,
+  );
+  const isLoadingAuth = useFirebaseAuthStore((state) => state.isLoading);
+  const profile = useFirebaseAuthStore((state) => state.profile);
+  const signOut = useFirebaseAuthStore((state) => state.signOut);
   const clearFolders = useFoldersStore((state) => state.clearFolders);
   const clearItems = useNotesStore((state) => state.clearItems);
+  const isLoggedIn = Boolean(currentUser);
 
   const loadSession = useCallback(async () => {
-    setIsSessionLoaded(false);
-
-    const token = await getToken();
-
-    setIsLoggedIn(Boolean(token));
-    setIsSessionLoaded(true);
-  }, []);
+    hydrateFirebaseAuth();
+  }, [hydrateFirebaseAuth]);
 
   useFocusEffect(
     useCallback(() => {
@@ -226,12 +231,10 @@ export default function AccountScreen() {
           text: "Cerrar sesión",
           style: "destructive",
           onPress: async () => {
-            await clearAuthSession();
+            await signOut();
             clearItems();
             clearFolders();
             await useNotesStore.persist.clearStorage();
-            setIsLoggedIn(false);
-            setIsSessionLoaded(true);
             router.replace("/auth/sign-in");
           },
         },
@@ -263,7 +266,7 @@ export default function AccountScreen() {
           { paddingBottom: insets.bottom + spacing.lg },
         ]}
       >
-        {isSessionLoaded && !isLoggedIn ? (
+        {!isLoadingAuth && !isLoggedIn ? (
           <View style={[styles.userCard, { backgroundColor: theme.card }]}>
             <View style={[styles.avatar, { backgroundColor: theme.primary }]}>
               <Ionicons color={theme.primaryText} name="person" size={38} />
@@ -299,12 +302,40 @@ export default function AccountScreen() {
           </View>
         ) : null}
 
+        {!isLoadingAuth && isLoggedIn ? (
+          <View style={[styles.userCard, { backgroundColor: theme.card }]}>
+            <View style={[styles.avatar, { backgroundColor: theme.primary }]}>
+              {profile?.avatarUrl ? (
+                <Image
+                  resizeMode="cover"
+                  source={{ uri: profile.avatarUrl }}
+                  style={styles.avatarImage}
+                />
+              ) : (
+                <Text
+                  style={[styles.avatarText, { color: theme.primaryText }]}
+                >
+                  {getUserInitial(profile?.name, profile?.email)}
+                </Text>
+              )}
+            </View>
+            <View style={styles.userCopy}>
+              <Text style={[styles.userTitle, { color: theme.text }]}>
+                {profile?.name ?? "Cuenta Minuta"}
+              </Text>
+              <Text style={[styles.userText, { color: theme.mutedText }]}>
+                {profile?.email ?? currentUser?.email ?? "Email no disponible"}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
         <AccountSection title="Cuenta">
           <AccountRow
             icon="person-outline"
             label="Perfil"
             subtitle={
-              isSessionLoaded && !isLoggedIn
+              !isLoadingAuth && !isLoggedIn
                 ? "Inicia sesión para ver tus datos."
                 : undefined
             }
@@ -355,7 +386,7 @@ export default function AccountScreen() {
           </View>
         </AccountSection>
 
-        {isSessionLoaded && isLoggedIn ? (
+        {!isLoadingAuth && isLoggedIn ? (
           <AccountSection title="Sesión">
             <AccountRow
               destructive
@@ -408,7 +439,16 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     height: 80,
     justifyContent: "center",
+    overflow: "hidden",
     width: 80,
+  },
+  avatarImage: {
+    height: "100%",
+    width: "100%",
+  },
+  avatarText: {
+    fontSize: typography.title,
+    fontWeight: "900",
   },
   content: {
     gap: spacing.lg,

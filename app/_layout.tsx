@@ -7,6 +7,7 @@ import { useEffect } from "react";
 import { GluestackUIProvider } from "../components/ui/gluestack-ui-provider";
 import { MinutaThemeProvider, useMinutaTheme } from "../constants/useMinutaTheme";
 import { getToken } from "../lib/authStorage";
+import { useFirebaseAuthStore } from "../store/firebaseAuthStore";
 import { useFoldersStore } from "../store/foldersStore";
 import { useNotesStore } from "../store/notesStore";
 
@@ -21,7 +22,14 @@ export default function RootLayout() {
 function RootLayoutContent() {
   const fetchFolders = useFoldersStore((state) => state.fetchFolders);
   const fetchItems = useNotesStore((state) => state.fetchItems);
+  const hydrateFirebaseAuth = useFirebaseAuthStore(
+    (state) => state.hydrateFirebaseAuth,
+  );
   const { colorScheme, isDark } = useMinutaTheme();
+
+  useEffect(() => {
+    hydrateFirebaseAuth();
+  }, [hydrateFirebaseAuth]);
 
   useEffect(() => {
     let isMounted = true;

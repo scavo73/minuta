@@ -10,11 +10,7 @@ import {
 } from "../../components/auth/AuthScaffold";
 import { spacing, typography } from "../../constants/theme";
 import { useMinutaTheme } from "../../constants/useMinutaTheme";
-import { login, register, type AuthResponse } from "../../lib/api";
-import {
-  getAuthToken,
-  saveSessionFromAuthResponse,
-} from "../../lib/authSession";
+import { useFirebaseAuthStore } from "../../store/firebaseAuthStore";
 import { useFoldersStore } from "../../store/foldersStore";
 import { useNotesStore } from "../../store/notesStore";
 
@@ -25,8 +21,11 @@ export default function SignUpScreen() {
   const [repeatedPassword, setRepeatedPassword] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const fetchFolders = useFoldersStore((state) => state.fetchFolders);
-  const fetchItems = useNotesStore((state) => state.fetchItems);
+  const signUpWithEmail = useFirebaseAuthStore(
+    (state) => state.signUpWithEmail,
+  );
+  const clearFolders = useFoldersStore((state) => state.clearFolders);
+  const clearItems = useNotesStore((state) => state.clearItems);
 
   const handleSignUp = async () => {
     const trimmedEmail = email.trim();
@@ -55,22 +54,9 @@ export default function SignUpScreen() {
       setIsSubmitting(true);
       setError("");
 
-      const registerResponse = await register(trimmedEmail, password);
-      let token = getAuthToken(registerResponse);
-      let sessionResponse: AuthResponse = registerResponse;
-
-      if (!token) {
-        const loginResponse = await login(trimmedEmail, password);
-        token = getAuthToken(loginResponse);
-        sessionResponse = loginResponse;
-      }
-
-      if (!token) {
-        throw new Error("No se recibió token de sesión.");
-      }
-
-      await saveSessionFromAuthResponse(token, sessionResponse, trimmedEmail);
-      await Promise.all([fetchItems(), fetchFolders()]);
+      await signUpWithEmail(trimmedEmail, password);
+      clearItems();
+      clearFolders();
       router.replace("/");
     } catch (nextError) {
       setError(

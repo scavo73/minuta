@@ -3,6 +3,7 @@ import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import {
   Alert,
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -19,27 +20,24 @@ import {
 import { radius, spacing, typography } from "../constants/theme";
 import { useMinutaTheme } from "../constants/useMinutaTheme";
 import {
-  clearAuthSession,
-  getToken,
-  getUserProfile,
-  updateUserProfile,
-  type UserProfile,
-} from "../lib/authStorage";
+  useFirebaseAuthStore,
+  type FirebaseUserProfile,
+} from "../store/firebaseAuthStore";
 import { useFoldersStore } from "../store/foldersStore";
 import { useNotesStore } from "../store/notesStore";
 
 type ProfileIconName = React.ComponentProps<typeof Ionicons>["name"];
 
-function getUserInitial(profile: UserProfile | null) {
+function getUserInitial(profile: FirebaseUserProfile | null) {
   const source = profile?.name?.trim() || profile?.email?.trim() || "?";
 
   return source.charAt(0).toUpperCase();
 }
 
-function formatDate(value?: string) {
+function formatDate(value?: FirebaseUserProfile["createdAt"]) {
   if (!value) return null;
 
-  const date = new Date(value);
+  const date = "toDate" in value ? value.toDate() : new Date(value);
 
   if (Number.isNaN(date.getTime())) return null;
 
@@ -139,23 +137,26 @@ function ProfileActionRow({
 export default function ProfileScreen() {
   const { theme } = useMinutaTheme();
   const insets = useSafeAreaInsets();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
+  const currentUser = useFirebaseAuthStore((state) => state.currentUser);
+  const hydrateFirebaseAuth = useFirebaseAuthStore(
+    (state) => state.hydrateFirebaseAuth,
+  );
+  const isLoadingAuth = useFirebaseAuthStore((state) => state.isLoading);
+  const profile = useFirebaseAuthStore((state) => state.profile);
+  const signOut = useFirebaseAuthStore((state) => state.signOut);
+  const updateFirebaseUserProfile = useFirebaseAuthStore(
+    (state) => state.updateUserProfile,
+  );
   const clearFolders = useFoldersStore((state) => state.clearFolders);
   const clearItems = useNotesStore((state) => state.clearItems);
   const createdAt = formatDate(profile?.createdAt);
+  const isLoggedIn = Boolean(currentUser);
 
   const loadProfile = useCallback(async () => {
-    const [token, storedProfile] = await Promise.all([
-      getToken(),
-      getUserProfile(),
-    ]);
-
-    setIsLoggedIn(Boolean(token));
-    setProfile(storedProfile);
-  }, []);
+    hydrateFirebaseAuth();
+  }, [hydrateFirebaseAuth]);
 
   useFocusEffect(
     useCallback(() => {
@@ -170,7 +171,7 @@ export default function ProfileScreen() {
         text: "Cerrar sesión",
         style: "destructive",
         onPress: async () => {
-          await clearAuthSession();
+          await signOut();
           clearItems();
           clearFolders();
           await useNotesStore.persist.clearStorage();
@@ -187,15 +188,24 @@ export default function ProfileScreen() {
 
   const saveName = async () => {
     const nextName = nameDraft.trim();
-    const nextProfile = await updateUserProfile({
-      name: nextName.length > 0 ? nextName : undefined,
+
+    await updateFirebaseUserProfile({
+      name: nextName.length > 0 ? nextName : "",
     });
 
-    setProfile(nextProfile);
     setIsEditingName(false);
   };
 
-  if (!isLoggedIn) {
+  if (isLoadingAuth && !currentUser) {
+    return (
+      <SafeAreaView
+        edges={["top"]}
+        style={[styles.screen, { backgroundColor: theme.background }]}
+      />
+    );
+  }
+
+  if (!isLoadingAuth && !isLoggedIn) {
     return (
       <SafeAreaView
         edges={["top"]}
@@ -259,9 +269,17 @@ export default function ProfileScreen() {
       >
         <View style={[styles.profileCard, { backgroundColor: theme.card }]}>
           <View style={[styles.avatar, { backgroundColor: theme.primary }]}>
-            <Text style={[styles.avatarText, { color: theme.primaryText }]}>
-              {getUserInitial(profile)}
-            </Text>
+            {profile?.avatarUrl ? (
+              <Image
+                resizeMode="cover"
+                source={{ uri: profile.avatarUrl }}
+                style={styles.avatarImage}
+              />
+            ) : (
+              <Text style={[styles.avatarText, { color: theme.primaryText }]}>
+                {getUserInitial(profile)}
+              </Text>
+            )}
           </View>
           <View style={styles.profileCopy}>
             {profile?.name ? (
@@ -291,7 +309,7 @@ export default function ProfileScreen() {
           ) : null}
           <ProfileInfoRow
             label="Estado"
-            value={profile?.syncStatus ?? "Sesión iniciada"}
+            value="Sesión Firebase iniciada"
           />
         </ProfileSection>
 
@@ -420,7 +438,12 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     height: 76,
     justifyContent: "center",
+    overflow: "hidden",
     width: 76,
+  },
+  avatarImage: {
+    height: "100%",
+    width: "100%",
   },
   avatarText: {
     fontSize: typography.title,
